@@ -894,4 +894,5 @@ function init() {
   console.log('✦ Gratitudine — App avviata');
 }
 
+document.addEventListener('DOMContentLoaded', init);
 // Avvia quando il DOM è pronto
