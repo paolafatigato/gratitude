@@ -1,3 +1,28 @@
+// UI handlers for login/logout
+window.loginHandler = function() {
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  login(email, password);
+};
+
+window.logoutHandler = function() {
+  logout();
+};
+
+// Show/hide login and logout UI based on auth state
+onAuthStateChanged(auth, (user) => {
+  const loginContainer = document.getElementById('login-container');
+  const logoutBtn = document.getElementById('logout-btn');
+  if (user) {
+    loginContainer.style.display = 'none';
+    logoutBtn.style.display = 'block';
+    // Show app UI
+  } else {
+    loginContainer.style.display = 'block';
+    logoutBtn.style.display = 'none';
+    // Hide app UI
+  }
+});
 /* ================================================
    GRATITUDINE — DIARIO DELLA GRATITUDINE
    script.js
@@ -12,6 +37,59 @@
    7. EVENT LISTENERS  — collegamento eventi
    8. INIT             — avvio app
    ================================================ */
+
+// Firebase setup
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCQ1rWGNGfx1IrdRMbjUs_5I-ywDLBVBRg",
+  authDomain: "gratitude-5be80.firebaseapp.com",
+  projectId: "gratitude-5be80",
+  storageBucket: "gratitude-5be80.firebasestorage.app",
+  messagingSenderId: "1062077178731",
+  appId: "1:1062077178731:web:630650fb5021694bfc622e"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// Login function
+async function login(email, password) {
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    alert("Login successful!");
+  } catch (error) {
+    alert("Login failed: " + error.message);
+  }
+}
+
+// Logout function
+function logout() {
+  signOut(auth);
+}
+
+// Listen for auth state changes
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    // User is signed in, load their data
+    const userDoc = doc(db, "users", user.uid);
+    const userData = await getDoc(userDoc);
+    if (userData.exists()) {
+      // Use userData.data() to populate app
+      console.log("User data:", userData.data());
+    } else {
+      // Create empty user data
+      await setDoc(userDoc, { entries: [] });
+    }
+    // Show app UI
+  } else {
+    // Show login UI
+    console.log("User not logged in");
+  }
+});
 
 
 /* ╔══════════════════════════════╗

@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gratitude — My Journal</title>
   <link rel="stylesheet" href="style.css" />
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
 
   <!-- =============================================
        FUTURE: Aggiungi qui link a font tematici
@@ -21,6 +25,14 @@
        ecc. sul <body> per applicare temi sbloccati.
        ============================================= -->
 
+  <!-- Login Form -->
+  <div id="login-container" style="display:none;">
+    <h2>Login</h2>
+    <input type="email" id="login-email" placeholder="Email" />
+    <input type="password" id="login-password" placeholder="Password" />
+    <button onclick="loginHandler()">Login</button>
+  </div>
+  <button id="logout-btn" style="display:none;" onclick="logoutHandler()">Logout</button>
   <!-- ── HEADER ── -->
   <header class="app-header">
     <div class="header-inner">
