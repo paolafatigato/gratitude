@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gratitude — My Journal</title>
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- =============================================
+       FUTURE: Aggiungi qui link a font tematici
+       sbloccabili con i punti (es. font "lusso", "playful")
+       ============================================= -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Caveat:wght@500;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- =============================================
+       FUTURE: Aggiungi classe "theme-dark", "theme-forest"
+       ecc. sul <body> per applicare temi sbloccati.
+       ============================================= -->
+
+  <!-- ── HEADER ── -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">✦</span>
+        <span class="logo-text">Gratitude</span>
+      </div>
+
+      <!-- Statistiche compatte -->
+      <div class="stats-bar">
+        <div class="stat-pill" title="Current streak">
+          <span class="stat-icon">🔥</span>
+          <span class="stat-value" id="streak-current">0</span>
+          <span class="stat-label">days</span>
+        </div>
+        <div class="stat-pill" title="Best streak">
+          <span class="stat-icon">🏆</span>
+          <span class="stat-value" id="streak-best">0</span>
+          <span class="stat-label">record</span>
+        </div>
+        <div class="stat-pill stat-points" title="Total points">
+          <span class="stat-icon">⭐</span>
+          <span class="stat-value" id="points-total">0</span>
+          <span class="stat-label">points</span>
+        </div>
+         <button id="settingsBtn" class="settings-btn" title="Impostazioni">
+          <span class="settings-icon">⚙️</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+       
+    <div id="settingsModal" class="settings-overlay" style="display:none;">
+        <div class="settings-modal">
+            <button id="closeSettings" class="close-settings">&times;</button>
+            <h2 class="settings-title">Impostazioni</h2>
+            <div id="settingsUI"></div>
+        </div>
+    </div>
+
+  <!-- ── NAVIGATION DATE ── -->
+  <nav class="date-nav">
+    <button class="nav-btn" id="btn-prev" title="Previous day">‹</button>
+
+    <div class="date-display">
+      <div class="date-day" id="display-day">Monday</div>
+      <div class="date-full" id="display-date">January 1, 2025</div>
+    </div>
+
+    <button class="nav-btn" id="btn-next" title="Next day">›</button>
+  </nav>
+
+  <!-- ── MINI CALENDAR ── -->
+  <div class="calendar-wrapper" id="calendar-wrapper">
+    <button class="calendar-toggle" id="calendar-toggle" aria-expanded="false">
+      <span>📅</span> Open calendar
+    </button>
+    <div class="calendar-panel" id="calendar-panel" hidden>
+      <div class="cal-header">
+        <button class="cal-nav" id="cal-prev-month">‹</button>
+        <span class="cal-month-label" id="cal-month-label"></span>
+        <button class="cal-nav" id="cal-next-month">›</button>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+  </div>
+
+  <!-- ── MAIN CONTENT ── -->
+  <main class="main-content">
+
+    <!-- ── GRATITUDE SECTION ── -->
+    <section class="card" id="section-gratitude">
+      <h2 class="section-title">
+        <span class="section-icon">🌿</span>
+        Three things I'm grateful for today
+      </h2>
+
+      <!-- Le voci vengono generate da JS -->
+      <div class="gratitude-list" id="gratitude-list"></div>
+
+      <!-- Pulsante aggiungi voce -->
+      <button class="btn-add" id="btn-add-entry">
+        + Add another thing
+      </button>
+    </section>
+
+    <!-- ── HAPPINESS SECTION ── -->
+    <section class="card" id="section-happiness">
+      <h2 class="section-title">
+        <span class="section-icon">☀️</span>
+        How do I feel today?
+      </h2>
+
+      <div class="happiness-control">
+        <span class="happiness-emoji" id="happiness-emoji">😐</span>
+        <div class="slider-wrap">
+          <input
+            type="range"
+            id="happiness-slider"
+            min="1" max="10" value="5"
+            class="happiness-slider"
+          />
+          <div class="slider-labels">
+            <span>1</span>
+            <span>5</span>
+            <span>10</span>
+          </div>
+        </div>
+        <span class="happiness-value" id="happiness-value">5</span>
+      </div>
+    </section>
+
+    <!-- ── SAVE BUTTON ── -->
+    <div class="save-area">
+      <button class="btn-save" id="btn-save">Save the day ✓</button>
+      <p class="save-status" id="save-status"></p>
+    </div>
+
+  </main>
+
+  <!-- ── FOOTER ── -->
+  <footer class="app-footer">
+    <p>Every day counts. ✦</p>
+    <!-- FUTURE: Aggiungi qui badge sbloccati e avatar -->
+  </footer>
+
+  <!-- =============================================
+       FUTURE: Aggiungi qui <script src="firebase.js">
+       per la configurazione Firebase.
+       ============================================= -->
+  <script src="script.js"></script>
+</body>
+</html>

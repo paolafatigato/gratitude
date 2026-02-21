@@ -1,0 +1,828 @@
+/* ================================================
+   GRATITUDINE — DIARIO DELLA GRATITUDINE
+   style.css
+   ================================================
+   Struttura:
+   1. CSS Variables (tema colori, font, ecc.)
+   2. Reset & Base
+   3. Layout principale
+   4. Header & Stats
+   5. Navigazione date
+   6. Calendario
+   7. Card & Sezioni
+   8. Voci gratitudine
+   9. Slider felicità
+   10. Pulsanti
+   11. Footer
+   12. Animazioni
+   13. [FUTURE] Temi alternativi
+   ================================================ */
+
+/* ── 1. CSS VARIABLES ── */
+:root {
+  /* Palette principale — toni caldi da diario */
+  --color-bg:         #faf6f0;       /* crema calda */
+  --color-surface:    #fff9f3;       /* bianco caldo */
+  --color-border:     #e8d9c5;       /* beige medio */
+  --color-accent:     #c2714f;       /* terracotta */
+  --color-accent-alt: #8fad88;       /* verde salvia */
+  --color-text:       #3a2e28;       /* marrone scuro */
+  --color-text-muted: #9b8878;       /* grigio caldo */
+  --color-highlight:  #f5e6d3;       /* pesca pallido */
+
+  /* Tipografia */
+  --font-display:     'Caveat', cursive;       /* titoli, numeri grandi */
+  --font-body:        'Lora', Georgia, serif;  /* testo principale */
+
+  /* Spacing */
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  16px;
+  --space-lg:  24px;
+  --space-xl:  40px;
+
+  /* Border radius */
+  --radius-sm:  6px;
+  --radius-md:  14px;
+  --radius-lg:  24px;
+
+  /* Shadows */
+  --shadow-sm:  0 2px 8px rgba(58,46,40,0.07);
+  --shadow-md:  0 4px 20px rgba(58,46,40,0.1);
+
+  /* Transizioni */
+  --transition: 0.2s ease;
+}
+
+/* =============================================
+   FUTURE: Temi alternativi sbloccabili con punti.
+   Basta aggiungere classe sul <body>.
+
+   body.theme-forest { --color-accent: #3a7d44; ... }
+   body.theme-ocean  { --color-accent: #2c7da0; ... }
+   body.theme-dark   { --color-bg: #1a1612; ... }
+   ============================================= */
+
+
+/* ── 2. RESET & BASE ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-bg);
+  /* Texture grain leggera — dà effetto carta */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  color: var(--color-text);
+  font-family: var(--font-body);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ── 3. LAYOUT PRINCIPALE ── */
+.main-content {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-md) var(--space-md) var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+/* ── 4. HEADER & STATS ── */
+.app-header {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-inner {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-sm) var(--space-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.logo-icon {
+  color: var(--color-accent);
+  font-size: 1.3rem;
+}
+
+.logo-text {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  color: var(--color-accent);
+  letter-spacing: 0.5px;
+}
+
+/* Stats bar */
+.stats-bar {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-highlight);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-family: var(--font-display);
+  cursor: default;
+}
+
+.stat-icon {
+  font-size: 0.9rem;
+}
+
+.stat-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  min-width: 18px;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  display: none; /* nascosto su mobile, mostra su desktop */
+}
+
+@media (min-width: 480px) {
+  .stat-label { display: inline; }
+}
+
+
+/* ── 5. NAVIGAZIONE DATE ── */
+.date-nav {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-md) var(--space-md) 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.nav-btn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-accent);
+  cursor: pointer;
+  font-size: 1.6rem;
+  line-height: 1;
+  padding: var(--space-sm) var(--space-md);
+  transition: background var(--transition), transform var(--transition);
+}
+
+.nav-btn:hover {
+  background: var(--color-highlight);
+  transform: scale(1.05);
+}
+
+.nav-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  transform: none;
+}
+
+.date-display {
+  text-align: center;
+  flex: 1;
+}
+
+.date-day {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  color: var(--color-text-muted);
+  text-transform: capitalize;
+}
+
+.date-full {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  color: var(--color-text);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+
+/* ── 6. CALENDARIO ── */
+.calendar-wrapper {
+  max-width: 640px;
+  margin: var(--space-sm) auto 0;
+  padding: 0 var(--space-md);
+}
+
+.calendar-toggle {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  padding: var(--space-xs) 0;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  transition: color var(--transition);
+}
+
+.calendar-toggle:hover { color: var(--color-accent); }
+
+.calendar-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  margin-top: var(--space-sm);
+  padding: var(--space-md);
+  animation: fadeIn 0.2s ease;
+}
+
+.cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-md);
+}
+
+.cal-nav {
+  background: none;
+  border: none;
+  color: var(--color-accent);
+  cursor: pointer;
+  font-size: 1.3rem;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  transition: background var(--transition);
+}
+.cal-nav:hover { background: var(--color-highlight); }
+
+.cal-month-label {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  text-align: center;
+}
+
+/* Header giorni settimana */
+.cal-day-header {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  padding-bottom: var(--space-xs);
+  text-transform: uppercase;
+}
+
+/* Celle giorno */
+.cal-day {
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  transition: background var(--transition), transform var(--transition);
+}
+
+.cal-day:hover { background: var(--color-highlight); transform: scale(1.1); }
+.cal-day.empty { cursor: default; }
+.cal-day.today { font-weight: 700; color: var(--color-accent); }
+.cal-day.selected { background: var(--color-accent); color: white; border-radius: 50%; }
+
+/* Giorno completato — pallino verde sotto */
+.cal-day.completed::after {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 4px;
+  background: var(--color-accent-alt);
+  border-radius: 50%;
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.cal-day.completed { position: relative; }
+
+
+/* ── 7. CARD & SEZIONI ── */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-lg);
+  transition: box-shadow var(--transition);
+}
+
+.card:hover { box-shadow: var(--shadow-md); }
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  color: var(--color-text);
+  margin-bottom: var(--space-lg);
+}
+
+.section-icon {
+  font-size: 1.1rem;
+}
+
+
+/* ── 8. VOCI GRATITUDINE ── */
+.gratitude-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.gratitude-entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  animation: slideIn 0.25s ease;
+}
+
+.entry-row {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: flex-start;
+}
+
+.entry-number {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  color: var(--color-border);
+  min-width: 28px;
+  padding-top: 6px;
+  user-select: none;
+  transition: color var(--transition);
+}
+
+  /* Numero si colora quando il campo ha testo */
+.gratitude-entry.filled .entry-number {
+  color: var(--color-accent);
+}
+
+.entry-text {
+  flex: 1;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  min-height: 60px;
+  padding: var(--space-sm) var(--space-md);
+  resize: vertical;
+  transition: border-color var(--transition), box-shadow var(--transition);
+  width: 100%;
+}
+
+.entry-text:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(194, 113, 79, 0.12);
+  outline: none;
+}
+
+.entry-text::placeholder {
+  color: var(--color-border);
+  font-style: italic;
+}
+
+/* Dropdown categoria */
+.entry-category {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  padding: var(--space-xs) var(--space-sm);
+  transition: border-color var(--transition);
+  align-self: flex-start;
+  margin-left: 36px; /* allineamento con il testo */
+}
+
+.entry-category:focus {
+  border-color: var(--color-accent);
+  outline: none;
+}
+
+/* Pulsante rimuovi (solo per voci extra, non le prime 3) */
+.btn-remove {
+  background: none;
+  border: none;
+  color: var(--color-border);
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: var(--space-xs);
+  transition: color var(--transition);
+  flex-shrink: 0;
+  margin-top: 8px;
+}
+.btn-remove:hover { color: #c0392b; }
+
+
+/* ── 9. SLIDER FELICITÀ ── */
+.happiness-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.happiness-emoji {
+  font-size: 2.2rem;
+  min-width: 48px;
+  text-align: center;
+  transition: transform 0.2s ease;
+}
+
+.slider-wrap {
+  flex: 1;
+}
+
+.happiness-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: var(--color-border);
+  border-radius: 999px;
+  cursor: pointer;
+  outline: none;
+}
+
+.happiness-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  background: var(--color-accent);
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(194,113,79,0.4);
+  cursor: grab;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.happiness-slider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.2);
+}
+
+.slider-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+.happiness-value {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  color: var(--color-accent);
+  font-weight: 700;
+  min-width: 36px;
+  text-align: center;
+}
+
+
+/* ── 10. PULSANTI ── */
+.btn-add {
+  background: none;
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  margin-top: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  transition: all var(--transition);
+  width: 100%;
+}
+
+.btn-add:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-highlight);
+}
+
+/* Pulsante salva */
+.save-area {
+  text-align: center;
+}
+
+.btn-save {
+  background: var(--color-accent);
+  border: none;
+  border-radius: var(--radius-lg);
+  color: white;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  letter-spacing: 0.5px;
+  padding: var(--space-md) var(--space-xl);
+  transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
+  box-shadow: 0 4px 16px rgba(194,113,79,0.35);
+}
+
+.btn-save:hover {
+  background: #a85a3a;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(194,113,79,0.4);
+}
+
+.btn-save:active {
+  transform: translateY(0);
+}
+
+/* Stato salvataggio */
+.save-status {
+  color: var(--color-accent-alt);
+  font-size: 0.9rem;
+  font-style: italic;
+  margin-top: var(--space-sm);
+  min-height: 1.4em;
+  transition: opacity 0.5s;
+}
+
+
+/* ── 11. FOOTER ── */
+.app-footer {
+  text-align: center;
+  padding: var(--space-lg);
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-style: italic;
+  border-top: 1px solid var(--color-border);
+  margin-top: var(--space-xl);
+}
+
+
+/* ── 12. ANIMAZIONI ── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Celebrazione dopo salvataggio */
+@keyframes pulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+.celebrate {
+  animation: pulse 0.4s ease;
+}
+
+/* =============================================
+  FUTURE: Qui aggiungi animazioni "premio"
+  (es. coriandoli, glow) sbloccabili con i punti.
+  ============================================= */
+
+
+/* ── RESPONSIVE ── */
+@media (max-width: 400px) {
+  .date-full { font-size: 1.5rem; }
+  .logo-text { font-size: 1.3rem; }
+  .card { padding: var(--space-md); }
+  .happiness-control { gap: var(--space-sm); }
+}
+
+/* Bottone Settings integrato nella stat-pill */
+.stat-points {
+  position: relative;
+}
+.settings-btn {
+  background: none;
+  border: none;
+  margin-left: 8px;
+  padding: 0 6px;
+  font-size: 1.3rem;
+  color: var(--color-accent);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: color var(--transition), transform var(--transition);
+}
+.settings-btn:hover {
+  color: var(--color-accent-alt);
+  transform: scale(1.15);
+}
+.settings-icon {
+  font-size: 1.2rem;
+  display: inline-block;
+}
+
+/* Modal Settings */
+/* OVERLAY */
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(58,46,40,0.2);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* BOX MODALE */
+.settings-modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 28px 22px;
+
+  width: 100%;
+  max-width: 420px;
+
+  /* altezza dinamica */
+  height: auto;
+  max-height: 90vh;
+  overflow-y: auto;
+
+  position: relative;
+}
+.settings-modal {
+  background: var(--color-surface);
+  padding: 32px 24px;
+  border-radius: var(--radius-lg);
+  min-width: 320px;
+  max-width: 90vw;
+  box-shadow: var(--shadow-md);
+  position: relative;
+  font-family: var(--font-body);
+}
+.settings-title {
+  font-family: var(--font-display);
+  color: var(--color-accent);
+  font-size: 1.5rem;
+  margin-bottom: var(--space-md);
+  text-align: left;
+}
+.close-settings {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  font-size: 1.5rem;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition), transform var(--transition);
+}
+.close-settings:hover {
+  color: var(--color-accent);
+  transform: scale(1.2);
+}
+
+/* Migliora grafica textareas e pulsanti nella modale settings */
+.settings-modal textarea,
+.settings-modal input[type="text"] {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-sm);
+  box-shadow: 0 2px 8px rgba(58,46,40,0.04);
+  transition: border var(--transition), box-shadow var(--transition);
+}
+.settings-modal textarea:focus,
+.settings-modal input[type="text"]:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 4px 16px rgba(194,113,79,0.12);
+  outline: none;
+}
+
+.settings-modal .cat-add-btn,
+.settings-modal .cat-del-btn {
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  padding: var(--space-xs) var(--space-md);
+  margin-left: var(--space-xs);
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition);
+  box-shadow: 0 2px 8px rgba(194,113,79,0.08);
+}
+.settings-modal .cat-add-btn:hover,
+.settings-modal  .cat-del-btn:hover {
+  background: var(--color-accent-alt);
+  color: var(--color-text);
+  transform: scale(1.07);
+}
+
+.settings-modal .cat-emoji-input {
+  width: 2.2em;
+  text-align: center;
+  font-size: 1.2em;
+  margin-right: var(--space-xs);
+  background: var(--color-highlight);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.settings-modal .cat-label-input {
+  flex: 1;
+  min-width: 80px;
+}
+.settings-modal .cat-order-input {
+  width: 3em;
+  text-align: center;
+  margin-left: var(--space-xs);
+}
+.settings-modal .cat-active-toggle {
+  margin-left: var(--space-xs);
+}
+.settings-cat-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-xs);
+}
+.settings-cat-list {
+  margin-bottom: var(--space-md);
+}
+.settings-modal .cat-inactive {
+  opacity: 0.5;
+  background: var(--color-highlight);
+}
+
+/* Responsive: titolo impostazioni sopra le categorie su mobile */
+@media (max-width: 480px) {
+  .settings-title {
+    display: block;
+    text-align: left;
+    margin-bottom: var(--space-md);
+  }
+  .settings-cat-list {
+    margin-top: 0;
+  }
+  .settings-modal {
+    align-items: flex-start;
+    justify-content: center;
+  }
+}
+
+/* Modal dimensione coerente col contenuto */
+.settings-modal {
+  min-height: unset;
+}
+.settings-content, #settingsModal {
+  min-width: 260px;
+  max-width: 420px;
+  width: auto;
+  margin: 0 auto;
+}
