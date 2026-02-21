@@ -13,13 +13,16 @@ window.logoutHandler = function() {
 onAuthStateChanged(auth, (user) => {
   const loginContainer = document.getElementById('login-container');
   const logoutBtn = document.getElementById('logout-btn');
+  const appContainer = document.getElementById('app-container');
   if (user) {
     loginContainer.style.display = 'none';
     logoutBtn.style.display = 'block';
+    appContainer.style.display = 'block';
     // Show app UI
   } else {
     loginContainer.style.display = 'block';
     logoutBtn.style.display = 'none';
+    appContainer.style.display = 'none';
     // Hide app UI
   }
 });
@@ -85,9 +88,15 @@ onAuthStateChanged(auth, async (user) => {
       await setDoc(userDoc, { entries: [] });
     }
     // Show app UI
+    // Initialize app only after login
+    if (!window._gratitudeAppStarted) {
+      window._gratitudeAppStarted = true;
+      init();
+    }
   } else {
     // Show login UI
     console.log("User not logged in");
+    window._gratitudeAppStarted = false;
   }
 });
 
@@ -886,4 +895,3 @@ function init() {
 }
 
 // Avvia quando il DOM è pronto
-document.addEventListener('DOMContentLoaded', init);
