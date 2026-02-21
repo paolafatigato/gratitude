@@ -26,6 +26,7 @@ onAuthStateChanged(auth, (user) => {
     // Hide app UI
   }
 });
+
 /* ================================================
    GRATITUDINE — DIARIO DELLA GRATITUDINE
    script.js
@@ -99,7 +100,6 @@ onAuthStateChanged(auth, async (user) => {
     window._gratitudeAppStarted = false;
   }
 });
-
 
 /* ╔══════════════════════════════╗
    ║  1. CONFIG                   ║
@@ -778,6 +778,20 @@ function initEventListeners() {
       renderCalendar();
     }
   });
+
+  // Login/Logout listeners
+  const loginBtn = document.getElementById('login-btn');
+  if (loginBtn) {
+    loginBtn.addEventListener('click', () => {
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      login(email, password);
+    });
+  }
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', logout);
+  }
 
   /* ── Aggiungi voce gratitudine ── */
   document.getElementById('btn-add-entry').addEventListener('click', () => {
