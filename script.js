@@ -1,31 +1,5 @@
-// UI handlers for login/logout
-window.loginHandler = function() {
-  const email = document.getElementById('login-email').value;
-  const password = document.getElementById('login-password').value;
-  login(email, password);
-};
 
-window.logoutHandler = function() {
-  logout();
-};
-
-// Show/hide login and logout UI based on auth state
-onAuthStateChanged(auth, (user) => {
-  const loginContainer = document.getElementById('login-container');
-  const logoutBtn = document.getElementById('logout-btn');
-  const appContainer = document.getElementById('app-container');
-  if (user) {
-    loginContainer.style.display = 'none';
-    logoutBtn.style.display = 'block';
-    appContainer.style.display = 'block';
-    // Show app UI
-  } else {
-    loginContainer.style.display = 'block';
-    logoutBtn.style.display = 'none';
-    appContainer.style.display = 'none';
-    // Hide app UI
-  }
-});
+// ...existing code...
 
 /* ================================================
    GRATITUDINE — DIARIO DELLA GRATITUDINE
