@@ -8,34 +8,32 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Caveat:wght@500;700&display=swap" rel="stylesheet" />
+  <!-- Favicon for browser tab -->
+  <link rel="icon" href="icon.png" type="image/png" />
+  <!-- PWA manifest for home screen icon -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#ffffff" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Gratitude" />
+  <link rel="apple-touch-icon" href="icon.png" />
 </head>
 <body>
 
-  <!-- ── LOADING OVERLAY ──
-       Shown while Firebase resolves auth state on startup.
-       Hidden by JS once auth state is known.
-  ── -->
+  <!-- LOADING OVERLAY -->
   <div id="loading-overlay" class="loading-overlay">
     <div class="loading-spinner"></div>
     <p class="loading-text">Loading your journal…</p>
   </div>
 
-  <!-- ══════════════════════════════════════════════
-       LOGIN MODAL
-       Shown when user clicks the 🚪 auth button and is not signed in.
-       Supports email/password AND Google Sign-In.
-  ══════════════════════════════════════════════ -->
+  <!-- LOGIN MODAL -->
   <div id="login-modal" class="modal-overlay" style="display:none;">
     <div class="modal-box login-modal-box">
       <button id="close-login-modal" class="close-modal-btn">&times;</button>
-
       <div class="login-logo">
         <span class="logo-icon">✦</span>
         <span class="logo-text">Gratitude</span>
       </div>
       <p class="login-subtitle">Sign in to sync your journal across devices</p>
-
-      <!-- Google Sign-In -->
       <button id="btn-google-login" class="btn-google">
         <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
           <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908C16.658 14.013 17.64 11.706 17.64 9.2z" fill="#4285F4"/>
@@ -45,9 +43,7 @@
         </svg>
         Continue with Google
       </button>
-
       <div class="login-divider"><span>or</span></div>
-
       <div class="login-form">
         <input type="email"    id="login-email"    class="login-input" placeholder="Email address"  autocomplete="email" />
         <input type="password" id="login-password" class="login-input" placeholder="Password"       autocomplete="current-password" />
@@ -58,10 +54,7 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════
-       SETTINGS MODAL
-       Manage categories. FUTURE: themes, notification time, etc.
-  ══════════════════════════════════════════════ -->
+  <!-- SETTINGS MODAL -->
   <div id="settingsModal" class="modal-overlay" style="display:none;">
     <div class="modal-box settings-modal-box">
       <button id="closeSettings" class="close-modal-btn">&times;</button>
@@ -70,79 +63,108 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════
-       MAIN APP
-       Hidden while loading overlay is visible.
-  ══════════════════════════════════════════════ -->
+  <!-- STATISTICS MODAL -->
+  <div id="statsModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box stats-modal-box">
+      <button id="closeStats" class="close-modal-btn">&times;</button>
+      <h2 class="stats-modal-title">Your Statistics</h2>
+
+      <!-- Summary cards -->
+      <div class="stats-summary-row" id="stats-summary-row"></div>
+
+      <!-- Monthly completed days -->
+      <div class="stats-section">
+        <h3 class="stats-section-heading">Days completed per month</h3>
+        <div class="stats-monthly-chart" id="stats-monthly-chart"></div>
+      </div>
+
+      <!-- Category breakdown with time filter -->
+      <div class="stats-section">
+        <div class="stats-cat-header">
+          <h3 class="stats-section-heading">What made me most grateful</h3>
+          <div class="stats-tabs" id="stats-tabs">
+            <button class="stats-tab active" data-range="all">All time</button>
+            <button class="stats-tab" data-range="3">Last 3 months</button>
+            <button class="stats-tab" data-range="1">This month</button>
+          </div>
+        </div>
+        <div class="stats-cat-chart" id="stats-cat-chart"></div>
+      </div>
+
+      <!-- Average happiness per month -->
+      <div class="stats-section">
+        <h3 class="stats-section-heading">Average happiness by month</h3>
+        <div class="stats-happiness-chart" id="stats-happiness-chart"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
   <div id="app-container">
 
-    <!-- ── HEADER ── -->
+    <!-- HEADER -->
     <header class="app-header">
       <div class="header-inner">
-
         <div class="logo">
           <span class="logo-icon">✦</span>
           <span class="logo-text">Gratitude</span>
         </div>
-
         <div class="stats-bar">
           <div class="stat-pill" title="Current streak">
             <span class="stat-icon">🔥</span>
             <span class="stat-value" id="streak-current">0</span>
             <span class="stat-label">days</span>
           </div>
-          <div class="stat-pill" title="Best streak">
-            <span class="stat-icon">🏆</span>
-            <span class="stat-value" id="streak-best">0</span>
-            <span class="stat-label">record</span>
-          </div>
           <div class="stat-pill" title="Total points">
             <span class="stat-icon">⭐</span>
             <span class="stat-value" id="points-total">0</span>
             <span class="stat-label">points</span>
           </div>
-
-          <!-- Settings & Auth buttons -->
+          <!-- Stats button replaces the old record pill -->
+          <button id="statsBtn" class="icon-btn stats-btn" title="Open statistics">
+            📊 <span class="stat-label">Stats</span>
+          </button>
           <button id="settingsBtn" class="icon-btn" title="Settings">⚙️</button>
-          <!-- authBtn: shows 🚪 when logged out, 👤 + name when logged in -->
           <button id="authBtn" class="icon-btn auth-pill" title="Account">
             <span id="authIcon">🚪</span>
             <span id="authLabel" class="auth-label"></span>
           </button>
         </div>
-
       </div>
     </header>
 
-    <!-- ── DATE NAVIGATION ── -->
+    <!-- AUTO-SAVE STATUS BAR -->
+    <div class="autosave-bar" id="autosave-bar" aria-live="polite"></div>
+
+    <!-- DATE NAVIGATION -->
     <nav class="date-nav">
-      <button class="nav-btn" id="btn-prev" title="Previous day">‹</button>
+      <button class="nav-btn" id="btn-prev" title="Previous day">&#8249;</button>
       <div class="date-display">
         <div class="date-day"  id="display-day">Monday</div>
         <div class="date-full" id="display-date">January 1, 2025</div>
       </div>
-      <button class="nav-btn" id="btn-next" title="Next day">›</button>
+      <button class="nav-btn" id="btn-next" title="Next day">&#8250;</button>
     </nav>
 
-    <!-- ── MINI CALENDAR ── -->
+    <!-- MINI CALENDAR -->
     <div class="calendar-wrapper">
       <button class="calendar-toggle" id="calendar-toggle" aria-expanded="false">
         <span>📅</span> Open calendar
       </button>
       <div class="calendar-panel" id="calendar-panel" hidden>
         <div class="cal-header">
-          <button class="cal-nav" id="cal-prev-month">‹</button>
+          <button class="cal-nav" id="cal-prev-month">&#8249;</button>
           <span class="cal-month-label" id="cal-month-label"></span>
-          <button class="cal-nav" id="cal-next-month">›</button>
+          <button class="cal-nav" id="cal-next-month">&#8250;</button>
         </div>
         <div class="cal-grid" id="cal-grid"></div>
       </div>
     </div>
 
-    <!-- ── MAIN CONTENT ── -->
+    <!-- MAIN CONTENT -->
     <main class="main-content">
 
-      <!-- Gratitude entries -->
       <section class="card" id="section-gratitude">
         <h2 class="section-title">
           <span class="section-icon">🌿</span>
@@ -152,7 +174,6 @@
         <button class="btn-add" id="btn-add-entry">+ Add another thing</button>
       </section>
 
-      <!-- Happiness slider -->
       <section class="card" id="section-happiness">
         <h2 class="section-title">
           <span class="section-icon">☀️</span>
@@ -161,35 +182,20 @@
         <div class="happiness-control">
           <span class="happiness-emoji" id="happiness-emoji">😐</span>
           <div class="slider-wrap">
-            <input
-              type="range"
-              id="happiness-slider"
-              min="1" max="10" value="5"
-              class="happiness-slider"
-            />
-            <div class="slider-labels">
-              <span>1</span><span>5</span><span>10</span>
-            </div>
+            <input type="range" id="happiness-slider" min="1" max="10" value="5" class="happiness-slider" />
+            <div class="slider-labels"><span>1</span><span>5</span><span>10</span></div>
           </div>
           <span class="happiness-value" id="happiness-value">5</span>
         </div>
       </section>
 
-      <!-- Save -->
-      <div class="save-area">
-        <button class="btn-save" id="btn-save">Save the day ✓</button>
-        <p class="save-status" id="save-status"></p>
-      </div>
-
     </main>
 
-    <!-- ── FOOTER ── -->
     <footer class="app-footer">
       <p>Every day counts. ✦</p>
-      <!-- FUTURE: Add unlocked badges and avatar here -->
     </footer>
 
-  </div><!-- /#app-container -->
+  </div>
 
   <script type="module" src="script.js"></script>
 </body>
