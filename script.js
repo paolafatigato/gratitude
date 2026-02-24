@@ -1,185 +1,302 @@
-
-// ...existing code...
-
 /* ================================================
-   GRATITUDINE — DIARIO DELLA GRATITUDINE
+   GRATITUDE — MY JOURNAL
    script.js
    ================================================
-   STRUTTURA MODULI:
-   1. CONFIG           — costanti e impostazioni globali
-   2. STORAGE          — lettura/scrittura dati
-   3. DATE UTILS       — gestione e formattazione date
-   4. STREAK & PUNTI   — calcolo streak e punteggio
-   5. RENDER UI        — disegno interfaccia
-   6. CALENDARIO       — mini calendario interattivo
-   7. EVENT LISTENERS  — collegamento eventi
-   8. INIT             — avvio app
+   MODULE STRUCTURE:
+   1.  FIREBASE SETUP       — init, auth, firestore, storage
+   2.  CONFIG               — constants and app settings
+   3.  SETTINGS SYSTEM      — manage categories via modal
+   4.  STORAGE              — read/write localStorage + Firestore
+   5.  DATE UTILS           — date formatting and math
+   6.  STREAK & POINTS      — calculate streak and score
+   7.  RENDER UI            — draw the day form
+   8.  PHOTO UPLOAD         — client-side resize + Firebase Storage
+   9.  CALENDAR             — mini interactive calendar
+   10. AUTH UI              — login modal, auth button state
+   11. EVENT LISTENERS      — wire up all DOM events
+   12. INIT                 — startup sequence
    ================================================ */
 
-// Firebase setup
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCQ1rWGNGfx1IrdRMbjUs_5I-ywDLBVBRg",
-  authDomain: "gratitude-5be80.firebaseapp.com",
-  projectId: "gratitude-5be80",
-  storageBucket: "gratitude-5be80.firebasestorage.app",
-  messagingSenderId: "1062077178731",
-  appId: "1:1062077178731:web:630650fb5021694bfc622e"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-// Login function
-async function login(email, password) {
-  try {
-    await signInWithEmailAndPassword(auth, email, password);
-    alert("Login successful!");
-  } catch (error) {
-    alert("Login failed: " + error.message);
-  }
-}
-
-// Logout function
-function logout() {
-  signOut(auth);
-}
-
-// Listen for auth state changes
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    // User is signed in, load their data
-    const userDoc = doc(db, "users", user.uid);
-    const userData = await getDoc(userDoc);
-    if (userData.exists()) {
-      // Use userData.data() to populate app
-      console.log("User data:", userData.data());
-    } else {
-      // Create empty user data
-      await setDoc(userDoc, { entries: [] });
-    }
-    // Show app UI
-    // Initialize app only after login
-    if (!window._gratitudeAppStarted) {
-      window._gratitudeAppStarted = true;
-      init();
-    }
-  } else {
-    // Show login UI
-    console.log("User not logged in");
-    window._gratitudeAppStarted = false;
-  }
-});
 
 /* ╔══════════════════════════════╗
-   ║  1. CONFIG                   ║
+   ║  1. FIREBASE SETUP           ║
+   ╚══════════════════════════════╝ */
+
+import { initializeApp }                                  from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+import { getAuth, onAuthStateChanged,
+         signInWithEmailAndPassword, createUserWithEmailAndPassword,
+         signOut, GoogleAuthProvider, signInWithPopup }   from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, collection,
+         getDocs }                                         from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { getStorage, ref as storageRef,
+         uploadBytes, getDownloadURL }                     from "https://www.gstatic.com/firebasejs/9.6.1/firebase-storage.js";
+
+const firebaseConfig = {
+  apiKey:            "AIzaSyCQ1rWGNGfx1IrdRMbjUs_5I-ywDLBVBRg",
+  authDomain:        "gratitude-5be80.firebaseapp.com",
+  projectId:         "gratitude-5be80",
+  storageBucket:     "gratitude-5be80.firebasestorage.app",
+  messagingSenderId: "1062077178731",
+  appId:             "1:1062077178731:web:630650fb5021694bfc622e"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const auth        = getAuth(firebaseApp);
+const db          = getFirestore(firebaseApp);
+const storage     = getStorage(firebaseApp);
+const googleProvider = new GoogleAuthProvider();
+
+
+/* ╔══════════════════════════════╗
+   ║  2. CONFIG                   ║
    ╚══════════════════════════════╝ */
 
 const CONFIG = {
-  MIN_ENTRIES:    3,     // voci minime per giornata valida
-  POINTS_PER_DAY: 10,   // punti per ogni giornata valida
+  MIN_ENTRIES:    3,   // minimum valid entries per day
+  POINTS_PER_DAY: 10, // points awarded per completed day
 
-  // Categorie disponibili nelle dropdown
-  CATEGORIES: [
-    { value: '',          label: 'No category' },
-    { value: 'scuola',    label: '📚 School'    },
-    { value: 'amore',     label: '❤️  Love'     },
-    { value: 'sport',     label: '⚽ Sport'      },
-    { value: 'amicizia',  label: '🤝 Friendship'   },
-    { value: 'lavoro',    label: '💼 Work'     },
-    { value: 'famiglia',  label: '🏡 Family'   },
-    { value: 'salute',    label: '🌱 Health'     },
-    { value: 'altro',     label: '✨ Other'      },
+  // Default categories (overridden by saved settings)
+  DEFAULT_CATEGORIES: [
+    { label: 'School',     emoji: '📚', order: 1, active: true },
+    { label: 'Love',       emoji: '❤️',  order: 2, active: true },
+    { label: 'Sport',      emoji: '⚽', order: 3, active: true },
+    { label: 'Friendship', emoji: '🤝', order: 4, active: true },
+    { label: 'Work',       emoji: '💼', order: 5, active: true },
+    { label: 'Family',     emoji: '🏡', order: 6, active: true },
+    { label: 'Health',     emoji: '🌱', order: 7, active: true },
+    { label: 'Other',      emoji: '✨', order: 8, active: true },
   ],
 
-  // Emoji felicità in base al valore (1-10)
+  // Emoji per happiness level 1–10
   HAPPINESS_EMOJIS: ['😞','😔','😕','😐','🙂','😊','😄','😁','🤩','🥰'],
 
-  STORAGE_KEY: 'gratitudine_data', // chiave localStorage
+  STORAGE_KEY:          'gratitude_data',     // localStorage key for entries
+  SETTINGS_STORAGE_KEY: 'gratitudeSettings',  // localStorage key for settings
 
-  /* FUTURE: quando integri Firebase, sposta qui la config:
-  FIREBASE_CONFIG: {
-    apiKey: "...",
-    projectId: "...",
-    ...
-  } */
+  // Max photo dimension (px) — images are resized before storing/uploading
+  PHOTO_MAX_SIZE: 900,
+  PHOTO_QUALITY:  0.75,
 };
 
 
 /* ╔══════════════════════════════╗
-   ║  2. STORAGE                  ║
+   ║  3. SETTINGS SYSTEM          ║
    ╚══════════════════════════════╝ */
 
-/**
- * Carica tutti i dati dall'archivio locale.
- * @returns {Object} - dizionario { "YYYY-MM-DD": DayData }
- */
+// Live settings object — mutated by the settings UI
+let settings = {
+  categories: [...CONFIG.DEFAULT_CATEGORIES],
+  // FUTURE: theme: '', notificationTime: '20:00', etc.
+};
+
+/** Save settings to localStorage. */
+function saveSettings() {
+  localStorage.setItem(CONFIG.SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+}
+
+/** Load settings from localStorage (falls back to defaults). */
+function loadSettings() {
+  const saved = localStorage.getItem(CONFIG.SETTINGS_STORAGE_KEY);
+  if (saved) {
+    try { settings = JSON.parse(saved); } catch(e) { /* keep defaults */ }
+  }
+}
+
+/** Returns active categories sorted by order. */
+function getActiveCategories() {
+  return settings.categories
+    .filter(c => c.active)
+    .sort((a, b) => a.order - b.order);
+}
+
+/** Re-renders all category dropdowns after settings change. */
+function updateCategoryDropdowns() {
+  const active  = getActiveCategories();
+  const options = ['<option value="">No category</option>',
+    ...active.map(c => `<option value="${c.label}">${c.emoji} ${c.label}</option>`)
+  ].join('');
+
+  document.querySelectorAll('.entry-category').forEach(sel => {
+    const prev = sel.value;
+    sel.innerHTML = options;
+    // Restore selection if still valid
+    if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+  });
+}
+
+/** Build the settings modal content. */
+function renderSettingsUI() {
+  const container = document.getElementById('settingsUI');
+  container.innerHTML = '';
+
+  // Categories section
+  const section = document.createElement('section');
+  section.className = 'settings-section';
+  section.innerHTML = '<h3>Categories</h3>';
+
+  const list = document.createElement('div');
+  list.className = 'settings-cat-list';
+
+  settings.categories
+    .sort((a, b) => a.order - b.order)
+    .forEach((cat, idx) => {
+      const row = document.createElement('div');
+      row.className = 'settings-cat-row' + (cat.active ? '' : ' cat-inactive');
+
+      // Emoji input
+      const emojiIn = document.createElement('input');
+      emojiIn.type = 'text'; emojiIn.value = cat.emoji;
+      emojiIn.className = 'cat-emoji-input'; emojiIn.maxLength = 2;
+      emojiIn.oninput = () => { cat.emoji = emojiIn.value; saveSettings(); updateCategoryDropdowns(); };
+
+      // Label input
+      const labelIn = document.createElement('input');
+      labelIn.type = 'text'; labelIn.value = cat.label;
+      labelIn.className = 'cat-label-input';
+      labelIn.oninput = () => { cat.label = labelIn.value; saveSettings(); updateCategoryDropdowns(); };
+
+      // Active toggle
+      const toggle = document.createElement('input');
+      toggle.type = 'checkbox'; toggle.checked = cat.active;
+      toggle.className = 'cat-active-toggle'; toggle.title = 'Active';
+      toggle.onchange = () => {
+        cat.active = toggle.checked;
+        saveSettings(); updateCategoryDropdowns(); renderSettingsUI();
+      };
+
+      // Delete button
+      const delBtn = document.createElement('button');
+      delBtn.className = 'cat-del-btn'; delBtn.textContent = '✕'; delBtn.title = 'Delete';
+      delBtn.onclick = () => {
+        settings.categories.splice(idx, 1);
+        saveSettings(); updateCategoryDropdowns(); renderSettingsUI();
+      };
+
+      row.append(emojiIn, labelIn, toggle, delBtn);
+      list.appendChild(row);
+    });
+
+  // Add new category button
+  const addBtn = document.createElement('button');
+  addBtn.className = 'cat-add-btn'; addBtn.textContent = '+ Add category';
+  addBtn.onclick = () => {
+    settings.categories.push({
+      label: '', emoji: '✦',
+      order: settings.categories.length + 1,
+      active: true
+    });
+    saveSettings(); renderSettingsUI(); updateCategoryDropdowns();
+  };
+
+  section.append(list, addBtn);
+  container.appendChild(section);
+}
+
+
+/* ╔══════════════════════════════╗
+   ║  4. STORAGE                  ║
+   ╚══════════════════════════════╝ */
+
+/** Load the full entries map from localStorage. */
 function loadAllData() {
   try {
     const raw = localStorage.getItem(CONFIG.STORAGE_KEY);
     return raw ? JSON.parse(raw) : {};
-  } catch (e) {
-    console.error('Errore lettura localStorage:', e);
+  } catch(e) {
+    console.error('localStorage read error:', e);
     return {};
   }
 }
 
-/**
- * Salva tutti i dati nell'archivio locale.
- * @param {Object} data - dizionario completo
- */
+/** Persist the full entries map to localStorage. */
 function saveAllData(data) {
   try {
     localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(data));
-  } catch (e) {
-    console.error('Errore scrittura localStorage:', e);
+  } catch(e) {
+    console.error('localStorage write error:', e);
   }
-
-  /* FUTURE: Sincronizzazione con Firebase.
-     Sostituisci (o affianca) il localStorage con:
-
-     import { db } from './firebase.js';
-     import { doc, setDoc } from 'firebase/firestore';
-
-     await setDoc(doc(db, 'users', userId, 'entries', dateKey), dayData);
-  */
 }
 
 /**
- * Legge i dati di un giorno specifico.
- * @param {string} dateKey - "YYYY-MM-DD"
- * @returns {Object|null}
+ * Load data for one day.
+ * If logged in → try Firestore first, then fall back to localStorage.
+ * @param {string} dateKey  "YYYY-MM-DD"
+ * @returns {Promise<Object|null>}
  */
-function loadDay(dateKey) {
-  const all = loadAllData();
-  return all[dateKey] || null;
+async function loadDay(dateKey) {
+  if (auth.currentUser) {
+    try {
+      const snap = await getDoc(
+        doc(db, 'users', auth.currentUser.uid, 'entries', dateKey)
+      );
+      if (snap.exists()) {
+        // Keep localStorage in sync so calcStats() works offline
+        const data = snap.data();
+        const all  = loadAllData();
+        all[dateKey] = data;
+        saveAllData(all);
+        return data;
+      }
+    } catch(e) {
+      console.warn('Firestore read failed, using localStorage:', e.message);
+    }
+  }
+  // Fallback: localStorage
+  return loadAllData()[dateKey] || null;
 }
 
 /**
- * Salva i dati di un giorno specifico.
- * @param {string} dateKey - "YYYY-MM-DD"
- * @param {Object} dayData - { gratitudes, happiness, completed }
+ * Save data for one day.
+ * Always writes to localStorage, and to Firestore when logged in.
+ * @param {string} dateKey
+ * @param {Object} dayData  { gratitudes, happiness, completed, savedAt }
  */
-function saveDay(dateKey, dayData) {
+async function saveDay(dateKey, dayData) {
+  // Always persist locally
   const all = loadAllData();
   all[dateKey] = dayData;
   saveAllData(all);
+
+  // Sync to Firestore when signed in
+  if (auth.currentUser) {
+    try {
+      await setDoc(
+        doc(db, 'users', auth.currentUser.uid, 'entries', dateKey),
+        dayData
+      );
+    } catch(e) {
+      console.error('Firestore write failed:', e.message);
+    }
+  }
+}
+
+/**
+ * Pull all Firestore entries for the current user into localStorage.
+ * Called once after login so stats/calendar reflect cloud data.
+ */
+async function syncAllFromFirestore() {
+  if (!auth.currentUser) return;
+  try {
+    const snapshot = await getDocs(
+      collection(db, 'users', auth.currentUser.uid, 'entries')
+    );
+    const all = loadAllData();
+    snapshot.forEach(docSnap => {
+      all[docSnap.id] = docSnap.data();
+    });
+    saveAllData(all);
+    console.log(`Synced ${snapshot.size} entries from Firestore.`);
+  } catch(e) {
+    console.warn('Firestore sync failed:', e.message);
+  }
 }
 
 
 /* ╔══════════════════════════════╗
-   ║  3. DATE UTILS               ║
+   ║  5. DATE UTILS               ║
    ╚══════════════════════════════╝ */
 
-/**
- * Converte una data JS in stringa "YYYY-MM-DD" (locale, non UTC).
- * @param {Date} date
- * @returns {string}
- */
+/** Convert a JS Date to "YYYY-MM-DD" (local time). */
 function dateToKey(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -187,154 +304,121 @@ function dateToKey(date) {
   return `${y}-${m}-${d}`;
 }
 
-/**
- * Converte "YYYY-MM-DD" in oggetto Date (locale).
- * @param {string} key
- * @returns {Date}
- */
+/** Convert "YYYY-MM-DD" back to a local Date. */
 function keyToDate(key) {
   const [y, m, d] = key.split('-').map(Number);
   return new Date(y, m - 1, d);
 }
 
-/**
- * Formatta una data in inglese per la visualizzazione.
- * @param {Date} date
- * @returns {{ giorno: string, data: string }}
- */
+/** Format a date for the UI. Returns { dayName, dateStr, monthYear }. */
 function formatDate(date) {
   const days   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const months = ['January','February','March','April','May','June',
                   'July','August','September','October','November','December'];
-
   return {
-    giorno: days[date.getDay()],
-    data:   `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`,
-    meseAnno: `${months[date.getMonth()]} ${date.getFullYear()}`,
+    dayName:   days[date.getDay()],
+    dateStr:   `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`,
+    monthYear: `${months[date.getMonth()]} ${date.getFullYear()}`,
   };
 }
 
-/**
- * Aggiunge (o sottrae) giorni a una data.
- * @param {Date} date
- * @param {number} n - numero di giorni (positivo o negativo)
- * @returns {Date}
- */
+/** Add n days to a date (n can be negative). */
 function addDays(date, n) {
   const d = new Date(date);
   d.setDate(d.getDate() + n);
   return d;
 }
 
-/** Ritorna la data di oggi come stringa "YYYY-MM-DD". */
-function todayKey() {
-  return dateToKey(new Date());
-}
+/** Today's date as "YYYY-MM-DD". */
+function todayKey() { return dateToKey(new Date()); }
 
 
 /* ╔══════════════════════════════╗
-   ║  4. STREAK & PUNTI           ║
+   ║  6. STREAK & POINTS          ║
    ╚══════════════════════════════╝ */
 
 /**
- * Calcola streak attuale, miglior streak e punti totali.
+ * Compute current streak, best streak, and total points
+ * from localStorage (which is kept in sync with Firestore).
  * @returns {{ current: number, best: number, points: number }}
  */
 function calcStats() {
-  const all  = loadAllData();
+  const all = loadAllData();
 
-  // Ottieni tutte le chiavi di giorni completati, ordinate
-  const completedDays = Object.keys(all)
-    .filter(key => all[key].completed)
-    .sort(); // ordine crescente "YYYY-MM-DD" si ordina bene come stringa
+  const completed = Object.keys(all)
+    .filter(k => all[k]?.completed)
+    .sort(); // "YYYY-MM-DD" sorts lexicographically = chronologically
 
-  if (completedDays.length === 0) {
-    return { current: 0, best: 0, points: 0 };
+  if (completed.length === 0) return { current: 0, best: 0, points: 0 };
+
+  const points = completed.length * CONFIG.POINTS_PER_DAY;
+
+  let best = 1, tempStreak = 1;
+
+  for (let i = 1; i < completed.length; i++) {
+    const diff = Math.round(
+      (keyToDate(completed[i]) - keyToDate(completed[i - 1])) / 86_400_000
+    );
+    if (diff === 1) { tempStreak++; if (tempStreak > best) best = tempStreak; }
+    else            { tempStreak = 1; }
   }
 
-  const points = completedDays.length * CONFIG.POINTS_PER_DAY;
-
-  // Calcola le streak scorrendo i giorni
-  let best    = 1;
-  let current = 1;
-  let tempStreak = 1;
-
-  for (let i = 1; i < completedDays.length; i++) {
-    const prev = keyToDate(completedDays[i - 1]);
-    const curr = keyToDate(completedDays[i]);
-    const diff = Math.round((curr - prev) / (1000 * 60 * 60 * 24));
-
-    if (diff === 1) {
-      // Giorni consecutivi
-      tempStreak++;
-      if (tempStreak > best) best = tempStreak;
-    } else {
-      // Streak interrotta
-      tempStreak = 1;
-    }
-  }
-
-  // Streak "attuale": conta solo se include oggi o ieri
-  const todayStr     = todayKey();
-  const yesterdayStr = dateToKey(addDays(new Date(), -1));
-  const lastDay      = completedDays[completedDays.length - 1];
-
-  if (lastDay === todayStr || lastDay === yesterdayStr) {
-    current = tempStreak;
-  } else {
-    current = 0; // streak interrotta
-  }
+  // Current streak is only alive if it includes today or yesterday
+  const last = completed[completed.length - 1];
+  const current = (last === todayKey() || last === dateToKey(addDays(new Date(), -1)))
+    ? tempStreak : 0;
 
   return { current, best, points };
+
+  /* FUTURE: check milestones here and unlock themes / badges:
+     if (points >= 50)  unlockTheme('forest');
+     if (current >= 7)  showBadge('week-warrior');
+  */
 }
 
-/**
- * Aggiorna il DOM con le statistiche aggiornate.
- */
+/** Refresh the stats pills in the header. */
 function updateStatsUI() {
   const { current, best, points } = calcStats();
   document.getElementById('streak-current').textContent = current;
   document.getElementById('streak-best').textContent    = best;
   document.getElementById('points-total').textContent   = points;
-
-  /* FUTURE: Qui puoi controllare soglie punti e sbloccare temi:
-     if (points >= 50)  unlockTheme('forest');
-     if (points >= 100) unlockTheme('dark');
-     if (points >= 200) showBadge('super-streak');
-  */
 }
 
 
 /* ╔══════════════════════════════╗
-   ║  5. RENDER UI                ║
+   ║  7. RENDER UI                ║
    ╚══════════════════════════════╝ */
 
-/** Stato globale dell'app (giorno corrente visualizzato) */
+/** Global app state. */
 const state = {
-  currentDate: new Date(),    // data visualizzata
-  today:       new Date(),    // data reale di oggi
+  currentDate: new Date(), // date the user is currently viewing
 };
 
 /**
- * Crea il markup HTML di una singola voce gratitudine.
- * @param {number} index  - indice (0-based)
- * @param {boolean} removable - mostra pulsante rimuovi?
- * @param {Object} data   - dati esistenti { text, category }
+ * Build one gratitude-entry DOM element.
+ * @param {number}  index     0-based index
+ * @param {boolean} removable show the ✕ remove button?
+ * @param {Object}  data      existing entry data { text, category, photoUrl }
  * @returns {HTMLElement}
  */
 function createEntryElement(index, removable = false, data = null) {
   const div = document.createElement('div');
-  div.className = 'gratitude-entry';
+  div.className  = 'gratitude-entry';
   div.dataset.index = index;
 
-  // Dropdown categorie
-  const categoryOptions = CONFIG.CATEGORIES
-    .map(c => `<option value="${c.value}" ${data?.category === c.value ? 'selected' : ''}>${c.label}</option>`)
-    .join('');
+  if (data?.photoUrl) div.dataset.photoUrl = data.photoUrl;
 
-  const removeBtnHTML = removable
-    ? `<button class="btn-remove" title="Remove" data-index="${index}">✕</button>`
-    : '';
+  // Build category options from live settings
+  const activeCategories = getActiveCategories();
+  const catOptions = [
+    '<option value="">No category</option>',
+    ...activeCategories.map(c =>
+      `<option value="${c.label}" ${data?.category === c.label ? 'selected' : ''}>${c.emoji} ${c.label}</option>`
+    )
+  ].join('');
+
+  const removeBtn = removable
+    ? `<button class="btn-remove" title="Remove entry">✕</button>` : '';
 
   div.innerHTML = `
     <div class="entry-row">
@@ -345,451 +429,400 @@ function createEntryElement(index, removable = false, data = null) {
         rows="2"
         data-index="${index}"
       >${data?.text || ''}</textarea>
-      ${removeBtnHTML}
+      ${removeBtn}
     </div>
-    <select class="entry-category" data-index="${index}">
-      ${categoryOptions}
-    </select>
+    <div class="entry-actions">
+      <select class="entry-category" data-index="${index}">${catOptions}</select>
+      <button class="btn-photo" type="button" title="Attach a photo">
+        <span class="photo-icon">📷</span> Photo
+      </button>
+      <!-- Hidden file picker -->
+      <input type="file" class="photo-file-input" accept="image/*" style="display:none;" />
+    </div>
   `;
 
-  // Colora il numero se c'è già testo
-  if (data?.text) div.classList.add('filled');
+  // Show existing photo thumbnail if present
+  if (data?.photoUrl) attachPhotoPreview(div, data.photoUrl);
 
-  // Listener: colora numero quando l'utente scrive
-  const textarea = div.querySelector('.entry-text');
-  textarea.addEventListener('input', () => {
-    div.classList.toggle('filled', textarea.value.trim().length > 0);
+  // Coloring: mark entry filled if it already has text
+  if (data?.text?.trim()) div.classList.add('filled');
+
+  // ── Listeners ──
+
+  // Color entry number while typing
+  div.querySelector('.entry-text').addEventListener('input', (e) => {
+    div.classList.toggle('filled', e.target.value.trim().length > 0);
   });
 
-  // Listener: rimuovi voce (solo per voci extra)
-  const removeBtn = div.querySelector('.btn-remove');
-  if (removeBtn) {
-    removeBtn.addEventListener('click', () => {
-      div.remove();
-      renumberEntries();
-    });
-  }
+  // Remove-entry button
+  div.querySelector('.btn-remove')?.addEventListener('click', () => {
+    div.remove();
+    renumberEntries();
+  });
+
+  // Photo button → trigger hidden file input
+  div.querySelector('.btn-photo').addEventListener('click', () => {
+    div.querySelector('.photo-file-input').click();
+  });
+
+  // File selected
+  div.querySelector('.photo-file-input').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) handlePhotoSelected(div, file);
+  });
 
   return div;
 }
 
-/**
- * Rinumera le voci dopo una rimozione.
- */
+/** Re-number entries after one is removed. */
 function renumberEntries() {
-  const entries = document.querySelectorAll('.gratitude-entry');
-  entries.forEach((el, i) => {
+  document.querySelectorAll('.gratitude-entry').forEach((el, i) => {
     el.dataset.index = i;
     el.querySelector('.entry-number').textContent = (i + 1) + '.';
-    el.querySelectorAll('[data-index]').forEach(child => {
-      child.dataset.index = i;
-    });
+    el.querySelectorAll('[data-index]').forEach(child => { child.dataset.index = i; });
   });
 }
 
-  // --- SETTINGS SYSTEM ---
-
-  // Oggetto settings base
-  let settings = {
-    categories: [
-      { label: "Study", emoji: "📚", order: 1, active: true },
-      { label: "Love", emoji: "❤️", order: 2, active: true },
-      { label: "Sport", emoji: "⚽", order: 3, active: true },
-      { label: "Friendship", emoji: "🤝", order: 4, active: true },
-      { label: "Work", emoji: "💼", order: 5, active: true },
-      { label: "Family", emoji: "🏡", order: 6, active: true },
-      { label: "Health", emoji: "🌱", order: 7, active: true },
-      { label: "Other", emoji: "✨", order: 8, active: true }
-    ],
-    theme: "",
-    streakRequirement: 3
-  };
-
-  function openSettings() {
-    renderSettingsUI();
-    document.getElementById('settingsModal').style.display = 'flex';
-  }
-
-  function closeSettings() {
-    document.getElementById('settingsModal').style.display = 'none';
-  }
-
-  function saveSettings() {
-    localStorage.setItem('gratitudeSettings', JSON.stringify(settings));
-  }
-
-  function loadSettings() {
-    const saved = localStorage.getItem('gratitudeSettings');
-    if (saved) {
-      settings = JSON.parse(saved);
-    }
-  }
-
-  function renderSettingsUI() {
-    const container = document.getElementById('settingsUI');
-    container.innerHTML = '';
-
-    // --- Categorie ---
-    const catSection = document.createElement('section');
-    catSection.className = 'settings-section';
-    catSection.innerHTML = '<h3>Categorie</h3>';
-
-    // Lista categorie
-    const catList = document.createElement('div');
-    catList.className = 'settings-cat-list';
-
-    settings.categories.sort((a, b) => a.order - b.order);
-    settings.categories.forEach((cat, idx) => {
-      const row = document.createElement('div');
-      row.className = 'settings-cat-row';
-      if (!cat.active) row.classList.add('cat-inactive');
-
-      // Emoji
-      const emojiInput = document.createElement('input');
-      emojiInput.type = 'text';
-      emojiInput.value = cat.emoji;
-      emojiInput.className = 'cat-emoji-input';
-      emojiInput.maxLength = 2;
-      emojiInput.title = 'Emoji';
-      emojiInput.oninput = () => {
-        cat.emoji = emojiInput.value;
-        saveSettings();
-        updateCategoryDropdown();
-      };
-
-      // Label
-      const labelInput = document.createElement('input');
-      labelInput.type = 'text';
-      labelInput.value = cat.label;
-      labelInput.className = 'cat-label-input';
-      labelInput.title = 'Nome categoria';
-      labelInput.oninput = () => {
-        cat.label = labelInput.value;
-        saveSettings();
-        updateCategoryDropdown();
-      };
-
-      // Order
-      const orderInput = document.createElement('input');
-      orderInput.type = 'number';
-      orderInput.value = cat.order;
-      orderInput.className = 'cat-order-input';
-      orderInput.title = 'Ordine';
-      orderInput.min = 1;
-      orderInput.onchange = () => {
-        cat.order = parseInt(orderInput.value) || idx+1;
-        saveSettings();
-        renderSettingsUI();
-        updateCategoryDropdown();
-      };
-
-      // Toggle attivo
-      const activeToggle = document.createElement('input');
-      activeToggle.type = 'checkbox';
-      activeToggle.checked = cat.active;
-      activeToggle.className = 'cat-active-toggle';
-      activeToggle.title = 'Attiva/disattiva';
-      activeToggle.onchange = () => {
-        cat.active = activeToggle.checked;
-        saveSettings();
-        updateCategoryDropdown();
-        renderSettingsUI();
-      };
-
-      // Bottone X eliminazione
-      const delBtn = document.createElement('button');
-      delBtn.className = 'cat-del-btn';
-      delBtn.textContent = '✕';
-      delBtn.title = 'Elimina categoria';
-      delBtn.onclick = () => {
-        if (cat.active) {
-          cat.active = false;
-          saveSettings();
-          updateCategoryDropdown();
-          renderSettingsUI();
-        } else {
-          settings.categories.splice(idx, 1);
-          saveSettings();
-          updateCategoryDropdown();
-          renderSettingsUI();
-        }
-      };
-
-      row.appendChild(emojiInput);
-      row.appendChild(labelInput);
-      row.appendChild(orderInput);
-      row.appendChild(activeToggle);
-      row.appendChild(delBtn);
-      catList.appendChild(row);
-    });
-
-    // Bottone aggiungi categoria
-    const addBtn = document.createElement('button');
-    addBtn.className = 'cat-add-btn';
-    addBtn.textContent = '+ Aggiungi categoria';
-    addBtn.onclick = () => {
-      const newCat = {
-        label: '',
-        emoji: '',
-        order: settings.categories.length + 1,
-        active: true
-      };
-      settings.categories.push(newCat);
-      saveSettings();
-      renderSettingsUI();
-      updateCategoryDropdown();
-    };
-
-    catSection.appendChild(catList);
-    catSection.appendChild(addBtn);
-    container.appendChild(catSection);
-
-    // --- Altre sezioni impostazioni verranno aggiunte qui ---
-  }
-
-  function updateCategoryDropdown() {
-    // Aggiorna tutti i dropdown delle voci gratitudine
-    const dropdowns = document.querySelectorAll('.entry-category');
-    dropdowns.forEach(select => {
-      const idx = select.dataset.index;
-      select.innerHTML = settings.categories
-        .filter(cat => cat.active)
-        .sort((a, b) => a.order - b.order)
-        .map(cat => `<option value="${cat.label}">${cat.emoji} ${cat.label}</option>`)
-        .join('');
-      // Mantieni selezione precedente se possibile
-      if (select.value && settings.categories.some(cat => cat.label === select.value && cat.active)) {
-        select.value = select.value;
-      }
-    });
-  }
-
-  // Event listeners per apertura/chiusura settings
-  document.getElementById('settingsBtn').addEventListener('click', openSettings);
-  document.getElementById('closeSettings').addEventListener('click', closeSettings);
-
-  // Carica settings all'avvio
-  loadSettings();
-
-/**
- * Legge i dati correnti dai campi del form.
- * @returns {{ gratitudes: Array, happiness: number }}
- */
+/** Read current form data (text + category + photoUrl for each entry). */
 function readFormData() {
-  const entries  = document.querySelectorAll('.gratitude-entry');
+  const entries = document.querySelectorAll('.gratitude-entry');
   const gratitudes = Array.from(entries).map(el => ({
     text:     el.querySelector('.entry-text').value.trim(),
     category: el.querySelector('.entry-category').value,
+    photoUrl: el.dataset.photoUrl || '',
   }));
-
   const happiness = parseInt(document.getElementById('happiness-slider').value, 10);
   return { gratitudes, happiness };
 }
 
 /**
- * Carica i dati di un giorno nel form.
- * @param {string} dateKey
+ * Load and render a day's data into the form.
+ * @param {string} dateKey  "YYYY-MM-DD"
  */
-function renderDay(dateKey) {
-  const data      = loadDay(dateKey);
-  const list      = document.getElementById('gratitude-list');
-  list.innerHTML  = '';
+async function renderDay(dateKey) {
+  // Show a subtle loading state on the save button
+  const saveBtn = document.getElementById('btn-save');
+  saveBtn.disabled = true;
 
-  const isToday   = dateKey === todayKey();
+  // ── Await data load (Firestore or localStorage) ──
+  const data = await loadDay(dateKey);
+
+  const list       = document.getElementById('gratitude-list');
+  list.innerHTML   = '';
+
   const gratitudes = data?.gratitudes || [];
+  const count      = Math.max(gratitudes.length, CONFIG.MIN_ENTRIES);
 
-  // Crea almeno 3 voci
-  const count = Math.max(gratitudes.length, CONFIG.MIN_ENTRIES);
   for (let i = 0; i < count; i++) {
-    const removable = i >= CONFIG.MIN_ENTRIES; // le prime 3 non si possono rimuovere
-    const entryData = gratitudes[i] || null;
-    list.appendChild(createEntryElement(i, removable, entryData));
+    const removable = i >= CONFIG.MIN_ENTRIES;
+    list.appendChild(createEntryElement(i, removable, gratitudes[i] || null));
   }
 
-  // Slider felicità
-  const slider = document.getElementById('happiness-slider');
-  const value  = data?.happiness || 5;
-  slider.value = value;
-  updateHappinessUI(value);
+  // Happiness slider
+  const val = data?.happiness ?? 5;
+  document.getElementById('happiness-slider').value = val;
+  updateHappinessUI(val);
 
-  // Pulsante aggiungi — disabilitato per i giorni passati (opzionale)
-  const btnAdd = document.getElementById('btn-add-entry');
-  btnAdd.disabled = false; // puoi mettere !isToday per bloccare i passati
-
-  // Nascondi stato salvataggio precedente
+  // Reset save status
   document.getElementById('save-status').textContent = '';
 
-  // Aggiorna header data
-  const { giorno, data: dataFormatted } = formatDate(state.currentDate);
-  document.getElementById('display-day').textContent  = giorno;
-  document.getElementById('display-date').textContent = dataFormatted;
+  // Update date header
+  const { dayName, dateStr } = formatDate(state.currentDate);
+  document.getElementById('display-day').textContent  = dayName;
+  document.getElementById('display-date').textContent = dateStr;
 
-  // Bottone "avanti" disabilitato se siamo già a oggi
+  // Disable "next" button when already on today
   document.getElementById('btn-next').disabled =
     dateToKey(state.currentDate) >= todayKey();
 
+  saveBtn.disabled = false;
   updateStatsUI();
 }
 
-/**
- * Aggiorna emoji e valore visivo dello slider.
- * @param {number} value - 1-10
- */
+/** Update the happiness emoji and numeric display. */
 function updateHappinessUI(value) {
   document.getElementById('happiness-value').textContent = value;
-  const emoji  = CONFIG.HAPPINESS_EMOJIS[value - 1];
   const emojiEl = document.getElementById('happiness-emoji');
-  emojiEl.textContent = emoji;
+  emojiEl.textContent  = CONFIG.HAPPINESS_EMOJIS[value - 1];
   emojiEl.style.transform = 'scale(1.2)';
-  setTimeout(() => emojiEl.style.transform = '', 200);
+  setTimeout(() => { emojiEl.style.transform = ''; }, 200);
 }
 
 
 /* ╔══════════════════════════════╗
-   ║  6. CALENDARIO               ║
+   ║  8. PHOTO UPLOAD             ║
    ╚══════════════════════════════╝ */
 
-/** Stato del calendario */
+/**
+ * Resize an image File using Canvas and return a Blob.
+ * @param {File}   file
+ * @param {number} maxSize  max width/height in px
+ * @param {number} quality  JPEG quality 0–1
+ * @returns {Promise<Blob>}
+ */
+function resizeImage(file, maxSize = CONFIG.PHOTO_MAX_SIZE, quality = CONFIG.PHOTO_QUALITY) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        // Calculate new dimensions while maintaining aspect ratio
+        let { width, height } = img;
+        if (width > height) {
+          if (width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize; }
+        } else {
+          if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        canvas.toBlob(resolve, 'image/jpeg', quality);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Attach a photo preview thumbnail to a gratitude-entry element.
+ * Also sets entry.dataset.photoUrl.
+ * @param {HTMLElement} entryEl
+ * @param {string}      url      data-URL or https URL
+ */
+function attachPhotoPreview(entryEl, url) {
+  // Remove existing preview if any
+  entryEl.querySelector('.photo-preview-wrap')?.remove();
+
+  const wrap = document.createElement('div');
+  wrap.className = 'photo-preview-wrap';
+
+  const img = document.createElement('img');
+  img.src = url; img.className = 'photo-preview'; img.alt = 'Gratitude photo';
+
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'btn-remove-photo'; removeBtn.title = 'Remove photo';
+  removeBtn.textContent = '✕';
+  removeBtn.onclick = () => {
+    wrap.remove();
+    delete entryEl.dataset.photoUrl;
+  };
+
+  wrap.append(img, removeBtn);
+  // Insert after the entry-actions row
+  entryEl.querySelector('.entry-actions').insertAdjacentElement('afterend', wrap);
+  entryEl.dataset.photoUrl = url;
+}
+
+/**
+ * Handle photo file selection: resize, optionally upload, show preview.
+ * @param {HTMLElement} entryEl  the .gratitude-entry
+ * @param {File}        file
+ */
+async function handlePhotoSelected(entryEl, file) {
+  // Show temporary uploading indicator
+  const indicator = document.createElement('p');
+  indicator.className = 'photo-uploading';
+  indicator.textContent = 'Processing…';
+  entryEl.querySelector('.entry-actions').insertAdjacentElement('afterend', indicator);
+
+  try {
+    const resized = await resizeImage(file);
+
+    if (auth.currentUser) {
+      // ── Logged in: upload to Firebase Storage ──
+      indicator.textContent = 'Uploading…';
+      const dateKey   = dateToKey(state.currentDate);
+      const entryIdx  = entryEl.dataset.index;
+      const path      = `users/${auth.currentUser.uid}/entries/${dateKey}/${entryIdx}_${Date.now()}.jpg`;
+      const fileRef   = storageRef(storage, path);
+
+      await uploadBytes(fileRef, resized);
+      const downloadURL = await getDownloadURL(fileRef);
+
+      indicator.remove();
+      attachPhotoPreview(entryEl, downloadURL);
+
+    } else {
+      // ── Logged out: store as base64 in localStorage ──
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        indicator.remove();
+        attachPhotoPreview(entryEl, e.target.result);
+      };
+      reader.onerror = () => { indicator.remove(); };
+      reader.readAsDataURL(resized);
+    }
+  } catch(err) {
+    indicator.textContent = '⚠ Photo failed. Try a smaller image.';
+    setTimeout(() => indicator.remove(), 4000);
+    console.error('Photo upload error:', err);
+  }
+}
+
+
+/* ╔══════════════════════════════╗
+   ║  9. CALENDAR                 ║
+   ╚══════════════════════════════╝ */
+
 const calState = {
   year:  new Date().getFullYear(),
   month: new Date().getMonth(), // 0-based
 };
 
-/**
- * Disegna il mini calendario per il mese corrente di calState.
- */
+/** Draw the mini calendar grid for calState.year/month. */
 function renderCalendar() {
-  const allData   = loadAllData();
-  const grid      = document.getElementById('cal-grid');
-  const label     = document.getElementById('cal-month-label');
-  grid.innerHTML  = '';
+  const allData = loadAllData();
+  const grid    = document.getElementById('cal-grid');
+  const label   = document.getElementById('cal-month-label');
+  grid.innerHTML = '';
 
-  const { meseAnno } = formatDate(new Date(calState.year, calState.month, 1));
-  label.textContent  = meseAnno;
+  const { monthYear } = formatDate(new Date(calState.year, calState.month, 1));
+  label.textContent   = monthYear;
 
-  // Intestazione giorni settimana (L M M G V S D)
-  const headers = ['L','M','M','G','V','S','D'];
-  headers.forEach(h => {
+  // Day-of-week headers (Monday-first)
+  ['M','T','W','T','F','S','S'].forEach(h => {
     const el = document.createElement('div');
-    el.className     = 'cal-day-header';
-    el.textContent   = h;
+    el.className   = 'cal-day-header';
+    el.textContent = h;
     grid.appendChild(el);
   });
 
-  // Primo giorno del mese
-  const firstDay   = new Date(calState.year, calState.month, 1);
-  // Offset: lunedì = 0, domenica = 6
-  let startOffset = firstDay.getDay() - 1;
-  if (startOffset < 0) startOffset = 6;
-
-  // Celle vuote prima del 1°
-  for (let i = 0; i < startOffset; i++) {
+  // Blank cells before day 1 (Monday = 0)
+  let offset = new Date(calState.year, calState.month, 1).getDay() - 1;
+  if (offset < 0) offset = 6; // Sunday becomes 6
+  for (let i = 0; i < offset; i++) {
     const el = document.createElement('div');
     el.className = 'cal-day empty';
     grid.appendChild(el);
   }
 
-  // Numero di giorni nel mese
   const daysInMonth = new Date(calState.year, calState.month + 1, 0).getDate();
 
   for (let d = 1; d <= daysInMonth; d++) {
-    const date    = new Date(calState.year, calState.month, d);
-    const key     = dateToKey(date);
-    const el      = document.createElement('div');
-    el.className  = 'cal-day';
+    const date = new Date(calState.year, calState.month, d);
+    const key  = dateToKey(date);
+    const el   = document.createElement('div');
+    el.className   = 'cal-day';
     el.textContent = d;
 
-    if (key === todayKey())                  el.classList.add('today');
+    if (key === todayKey())                   el.classList.add('today');
     if (key === dateToKey(state.currentDate)) el.classList.add('selected');
-    if (allData[key]?.completed)             el.classList.add('completed');
-    if (key > todayKey())                    el.style.opacity = '0.3'; // giorni futuri
+    if (allData[key]?.completed)              el.classList.add('completed');
+    if (key > todayKey())                     el.style.opacity = '0.3';
 
-    el.addEventListener('click', () => {
-      if (key > todayKey()) return; // non navigare nel futuro
+    el.addEventListener('click', async () => {
+      if (key > todayKey()) return;
       state.currentDate = date;
-      renderDay(key);
+      await renderDay(key);
       renderCalendar();
-      // Chiudi il pannello su mobile
-      toggleCalendar(false);
+      toggleCalendar(false); // close on mobile after selection
     });
 
     grid.appendChild(el);
   }
 }
 
-/** Apre/chiude il pannello calendario. */
+/** Open or close the calendar panel. */
 function toggleCalendar(forceOpen) {
-  const panel   = document.getElementById('calendar-panel');
-  const toggle  = document.getElementById('calendar-toggle');
-  const isOpen  = forceOpen !== undefined ? !forceOpen : !panel.hidden;
+  const panel  = document.getElementById('calendar-panel');
+  const toggle = document.getElementById('calendar-toggle');
+  const isOpen = forceOpen !== undefined ? !forceOpen : !panel.hidden;
 
-  panel.hidden              = isOpen;
-  toggle.textContent        = isOpen ? '📅 Open calendar' : '📅 Close calendar';
+  panel.hidden = isOpen;
+  toggle.textContent = isOpen ? '📅 Open calendar' : '📅 Close calendar';
   toggle.setAttribute('aria-expanded', String(!isOpen));
 
-  if (!isOpen) renderCalendar();
+  if (!isOpen) renderCalendar(); // refresh when opening
 }
 
 
 /* ╔══════════════════════════════╗
-   ║  7. EVENT LISTENERS          ║
+   ║  10. AUTH UI                 ║
+   ╚══════════════════════════════╝ */
+
+/** Show or hide the login modal. */
+function showLoginModal(visible) {
+  document.getElementById('login-modal').style.display = visible ? 'flex' : 'none';
+  if (visible) {
+    document.getElementById('login-error').style.display = 'none';
+    document.getElementById('login-email').value    = '';
+    document.getElementById('login-password').value = '';
+  }
+}
+
+/** Display an error message inside the login modal. */
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent    = msg;
+  el.style.display  = 'block';
+}
+
+/**
+ * Update the auth button appearance based on login state.
+ * @param {import('firebase/auth').User|null} user
+ */
+function updateAuthUI(user) {
+  const icon  = document.getElementById('authIcon');
+  const label = document.getElementById('authLabel');
+
+  if (user) {
+    icon.textContent  = '👤';
+    label.textContent = user.displayName || user.email?.split('@')[0] || 'You';
+    label.style.display = 'inline';
+  } else {
+    icon.textContent    = '🚪';
+    label.style.display = 'none';
+    label.textContent   = '';
+  }
+}
+
+
+/* ╔══════════════════════════════╗
+   ║  11. EVENT LISTENERS         ║
    ╚══════════════════════════════╝ */
 
 function initEventListeners() {
 
-  /* ── Navigazione data ── */
-  document.getElementById('btn-prev').addEventListener('click', () => {
+  /* ── Date navigation ── */
+  document.getElementById('btn-prev').addEventListener('click', async () => {
     state.currentDate = addDays(state.currentDate, -1);
-    renderDay(dateToKey(state.currentDate));
+    await renderDay(dateToKey(state.currentDate));
     renderCalendar();
   });
 
-  document.getElementById('btn-next').addEventListener('click', () => {
+  document.getElementById('btn-next').addEventListener('click', async () => {
     const next = addDays(state.currentDate, 1);
     if (dateToKey(next) <= todayKey()) {
       state.currentDate = next;
-      renderDay(dateToKey(state.currentDate));
+      await renderDay(dateToKey(state.currentDate));
       renderCalendar();
     }
   });
 
-  // Login/Logout listeners
-  const loginBtn = document.getElementById('login-btn');
-  if (loginBtn) {
-    loginBtn.addEventListener('click', () => {
-      const email = document.getElementById('login-email').value;
-      const password = document.getElementById('login-password').value;
-      login(email, password);
-    });
-  }
-  const logoutBtn = document.getElementById('logout-btn');
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', logout);
-  }
-
-  /* ── Aggiungi voce gratitudine ── */
+  /* ── Add gratitude entry ── */
   document.getElementById('btn-add-entry').addEventListener('click', () => {
     const list  = document.getElementById('gratitude-list');
     const count = list.querySelectorAll('.gratitude-entry').length;
-    list.appendChild(createEntryElement(count, true)); // removable = true
-    // Scroll alla nuova voce
-    list.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const entry = createEntryElement(count, true);
+    list.appendChild(entry);
+    entry.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
 
-  /* ── Slider felicità ── */
+  /* ── Happiness slider ── */
   document.getElementById('happiness-slider').addEventListener('input', (e) => {
     updateHappinessUI(parseInt(e.target.value, 10));
   });
 
-  /* ── Salva ── */
+  /* ── Save button ── */
   document.getElementById('btn-save').addEventListener('click', handleSave);
 
-  /* ── Calendario toggle ── */
-  document.getElementById('calendar-toggle').addEventListener('click', () => {
-    toggleCalendar();
-  });
+  /* ── Calendar toggle ── */
+  document.getElementById('calendar-toggle').addEventListener('click', () => toggleCalendar());
 
-  /* ── Calendario mese prev/next ── */
+  /* ── Calendar month navigation ── */
   document.getElementById('cal-prev-month').addEventListener('click', () => {
     calState.month--;
     if (calState.month < 0) { calState.month = 11; calState.year--; }
@@ -797,7 +830,6 @@ function initEventListeners() {
   });
 
   document.getElementById('cal-next-month').addEventListener('click', () => {
-    // Non avanzare oltre il mese corrente
     const now = new Date();
     if (calState.year < now.getFullYear() ||
        (calState.year === now.getFullYear() && calState.month < now.getMonth())) {
@@ -806,18 +838,90 @@ function initEventListeners() {
       renderCalendar();
     }
   });
+
+  /* ── Settings modal ── */
+  document.getElementById('settingsBtn').addEventListener('click', () => {
+    renderSettingsUI();
+    document.getElementById('settingsModal').style.display = 'flex';
+  });
+  document.getElementById('closeSettings').addEventListener('click', () => {
+    document.getElementById('settingsModal').style.display = 'none';
+  });
+
+  /* ── Auth button ──
+     Logged out → open login modal
+     Logged in  → sign out
+  ── */
+  document.getElementById('authBtn').addEventListener('click', () => {
+    if (auth.currentUser) {
+      signOut(auth);
+    } else {
+      showLoginModal(true);
+    }
+  });
+
+  document.getElementById('close-login-modal').addEventListener('click', () => {
+    showLoginModal(false);
+  });
+
+  /* ── Google Sign-In ── */
+  document.getElementById('btn-google-login').addEventListener('click', async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+      showLoginModal(false);
+    } catch(e) {
+      showLoginError(e.message);
+    }
+  });
+
+  /* ── Email Sign-In ── */
+  document.getElementById('btn-email-login').addEventListener('click', async () => {
+    const email    = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    if (!email || !password) { showLoginError('Please enter email and password.'); return; }
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      showLoginModal(false);
+    } catch(e) {
+      showLoginError('Sign-in failed: ' + e.message);
+    }
+  });
+
+  /* ── Email Sign-Up ── */
+  document.getElementById('btn-email-signup').addEventListener('click', async () => {
+    const email    = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    if (!email || !password) { showLoginError('Please enter email and password.'); return; }
+    if (password.length < 6) { showLoginError('Password must be at least 6 characters.'); return; }
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      showLoginModal(false);
+    } catch(e) {
+      showLoginError('Sign-up failed: ' + e.message);
+    }
+  });
+
+  // Close modals when clicking the overlay backdrop
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.style.display = 'none';
+    });
+  });
 }
 
 /**
- * Gestisce il salvataggio della giornata.
+ * Handle the Save button click.
+ * Reads the form, saves the day, shows feedback.
  */
-function handleSave() {
+async function handleSave() {
+  const btn      = document.getElementById('btn-save');
+  const statusEl = document.getElementById('save-status');
+  btn.disabled   = true;
+
   const dateKey             = dateToKey(state.currentDate);
   const { gratitudes, happiness } = readFormData();
-
-  // Conta le voci con testo non vuoto
-  const validEntries = gratitudes.filter(g => g.text.length > 0);
-  const completed    = validEntries.length >= CONFIG.MIN_ENTRIES;
+  const validCount = gratitudes.filter(g => g.text.length > 0).length;
+  const completed  = validCount >= CONFIG.MIN_ENTRIES;
 
   const dayData = {
     gratitudes,
@@ -826,61 +930,81 @@ function handleSave() {
     savedAt: new Date().toISOString(),
   };
 
-  saveDay(dateKey, dayData);
+  await saveDay(dateKey, dayData); // properly awaited
 
-  /* ── Feedback visivo ── */
-  const btn        = document.getElementById('btn-save');
-  const statusEl   = document.getElementById('save-status');
-
+  // Visual feedback
   if (completed) {
-    statusEl.textContent = '✓ Day saved! Great job 🌿';
-
-    // Animazione celebrazione
+    statusEl.textContent = '✓ Day saved! Great work 🌿';
     btn.classList.add('celebrate');
     setTimeout(() => btn.classList.remove('celebrate'), 500);
-
-    /* FUTURE: Qui puoi aggiungere animazioni speciali
-       (coriandoli, suoni, glow) in base ai punti. */
-
+    /* FUTURE: trigger confetti / unlock animation here */
   } else {
-    statusEl.textContent = `⚠ Partial save (${validEntries.length}/${CONFIG.MIN_ENTRIES} entries required for the streak)`;
+    statusEl.textContent = `⚠ Partial save — ${validCount}/${CONFIG.MIN_ENTRIES} entries needed for the streak`;
   }
 
-  // Nascondi messaggio dopo 3 secondi
-  setTimeout(() => { statusEl.textContent = ''; }, 3000);
+  setTimeout(() => { statusEl.textContent = ''; }, 3500);
 
-  // Aggiorna statistiche e calendario
+  btn.disabled = false;
   updateStatsUI();
   renderCalendar();
 }
 
 
 /* ╔══════════════════════════════╗
-   ║  8. INIT                     ║
+   ║  12. INIT                    ║
    ╚══════════════════════════════╝ */
 
 /**
- * Avvia l'applicazione.
+ * Main app startup.
+ * Called once — by onAuthStateChanged on first auth resolution.
+ * @param {import('firebase/auth').User|null} user
  */
-function init() {
-  // Mostra il giorno corrente all'apertura
-  state.currentDate = new Date();
+async function init(user) {
+  loadSettings(); // load saved categories
 
-  renderDay(dateToKey(state.currentDate));
+  state.currentDate = new Date();
   initEventListeners();
+
+  // If user is logged in, pull their entries from the cloud first
+  if (user) {
+    await syncAllFromFirestore();
+  }
+
+  await renderDay(dateToKey(state.currentDate));
+  renderCalendar();
   updateStatsUI();
 
-  /* FUTURE: Qui puoi inizializzare Firebase e
-     sincronizzare i dati dal cloud prima del renderDay:
+  // Hide loading overlay
+  const overlay = document.getElementById('loading-overlay');
+  overlay.classList.add('hidden');
+  // Remove from DOM after fade
+  setTimeout(() => overlay.remove(), 500);
 
-     await initFirebase();
-     const cloudData = await loadFromFirebase(userId);
-     mergeWithLocalData(cloudData);
-     renderDay(dateToKey(state.currentDate));
-  */
-
-  console.log('✦ Gratitudine — App avviata');
+  console.log('✦ Gratitude — app started', user ? `(${user.email})` : '(guest)');
 }
 
-document.addEventListener('DOMContentLoaded', init);
-// Avvia quando il DOM è pronto
+/* ── Auth state listener ──
+   Firebase calls this immediately with the current auth state,
+   then again on every sign-in / sign-out.
+   This is the single entry point for app initialization.
+── */
+let _initialized = false;
+
+onAuthStateChanged(auth, async (user) => {
+  updateAuthUI(user);
+
+  if (!_initialized) {
+    // First call: initialize the whole app
+    _initialized = true;
+    await init(user);
+  } else {
+    // Subsequent calls (user signed in or out after app was running)
+    if (user) {
+      // Sync cloud data and re-render
+      await syncAllFromFirestore();
+    }
+    await renderDay(dateToKey(state.currentDate));
+    renderCalendar();
+    updateStatsUI();
+  }
+});
