@@ -4,28 +4,37 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gratitude — My Journal</title>
+
+  <!-- Dynamic theme/font overrides injected by JS -->
+  <style id="app-overrides"></style>
+
   <link rel="stylesheet" href="style.css" />
+
+  <!-- Default fonts (always loaded) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Caveat:wght@500;700&display=swap" rel="stylesheet" />
-  <!-- Favicon for browser tab -->
-  <link rel="icon" href="icon.png" type="image/png" />
-  <!-- PWA manifest for home screen icon -->
-  <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#ffffff" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="Gratitude" />
-  <link rel="apple-touch-icon" href="icon.png" />
+  <link id="font-link-journal" rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Caveat:wght@500;700&display=swap" />
+
+  <!-- Shop font packs — loaded for preview; applied dynamically -->
+  <link id="font-link-elegant" rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,400&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" />
+  <link id="font-link-modern" rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700&family=DM+Sans:ital,wght@0,400;0,500;1,400&display=swap" />
+  <link id="font-link-dreamy" rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Pacifico&family=Nunito:ital,wght@0,400;0,600;1,400&display=swap" />
 </head>
 <body>
 
-  <!-- LOADING OVERLAY -->
+  <!-- ── LOADING OVERLAY ── -->
   <div id="loading-overlay" class="loading-overlay">
     <div class="loading-spinner"></div>
     <p class="loading-text">Loading your journal…</p>
   </div>
 
-  <!-- LOGIN MODAL -->
+  <!-- ══════════════════════════════════════════════
+       LOGIN MODAL
+  ══════════════════════════════════════════════ -->
   <div id="login-modal" class="modal-overlay" style="display:none;">
     <div class="modal-box login-modal-box">
       <button id="close-login-modal" class="close-modal-btn">&times;</button>
@@ -54,7 +63,9 @@
     </div>
   </div>
 
-  <!-- SETTINGS MODAL -->
+  <!-- ══════════════════════════════════════════════
+       SETTINGS MODAL
+  ══════════════════════════════════════════════ -->
   <div id="settingsModal" class="modal-overlay" style="display:none;">
     <div class="modal-box settings-modal-box">
       <button id="closeSettings" class="close-modal-btn">&times;</button>
@@ -63,22 +74,18 @@
     </div>
   </div>
 
-  <!-- STATISTICS MODAL -->
+  <!-- ══════════════════════════════════════════════
+       STATISTICS MODAL
+  ══════════════════════════════════════════════ -->
   <div id="statsModal" class="modal-overlay" style="display:none;">
     <div class="modal-box stats-modal-box">
       <button id="closeStats" class="close-modal-btn">&times;</button>
       <h2 class="stats-modal-title">Your Statistics</h2>
-
-      <!-- Summary cards -->
       <div class="stats-summary-row" id="stats-summary-row"></div>
-
-      <!-- Monthly completed days -->
       <div class="stats-section">
         <h3 class="stats-section-heading">Days completed per month</h3>
-        <div class="stats-monthly-chart" id="stats-monthly-chart"></div>
+        <div id="stats-monthly-chart"></div>
       </div>
-
-      <!-- Category breakdown with time filter -->
       <div class="stats-section">
         <div class="stats-cat-header">
           <h3 class="stats-section-heading">What made me most grateful</h3>
@@ -88,48 +95,96 @@
             <button class="stats-tab" data-range="1">This month</button>
           </div>
         </div>
-        <div class="stats-cat-chart" id="stats-cat-chart"></div>
+        <div id="stats-cat-chart"></div>
       </div>
-
-      <!-- Average happiness per month -->
       <div class="stats-section">
         <h3 class="stats-section-heading">Average happiness by month</h3>
-        <div class="stats-happiness-chart" id="stats-happiness-chart"></div>
+        <div id="stats-happiness-chart"></div>
       </div>
-
     </div>
   </div>
 
-  <!-- MAIN APP -->
+  <!-- ══════════════════════════════════════════════
+       SHOP MODAL
+       Opened by clicking the points ⭐ pill.
+       Three tabs: Themes · Fonts · Avatars
+  ══════════════════════════════════════════════ -->
+  <div id="shopModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box shop-modal-box">
+      <button id="closeShop" class="close-modal-btn">&times;</button>
+
+      <!-- Shop header: avatar + title + available points -->
+      <div class="shop-header">
+        <span id="shop-avatar-big" class="shop-avatar-big">🌱</span>
+        <div class="shop-header-info">
+          <h2 class="shop-title">Shop</h2>
+          <p class="shop-subtitle">Spend your points to unlock themes, fonts & avatars</p>
+          <p class="shop-balance">
+            Available: <strong id="shop-points-display">0</strong> ⭐
+            &nbsp;·&nbsp; Earned: <strong id="shop-earned-display">0</strong> ⭐ total
+          </p>
+        </div>
+      </div>
+
+      <!-- Tab navigation -->
+      <div class="shop-tabs">
+        <button class="shop-tab active" data-tab="themes">🎨 Themes</button>
+        <button class="shop-tab" data-tab="fonts">✍️ Fonts</button>
+        <button class="shop-tab" data-tab="avatars">🐾 Avatars</button>
+      </div>
+
+      <!-- Item grid (populated by JS) -->
+      <div class="shop-content" id="shop-content"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       MAIN APP
+  ══════════════════════════════════════════════ -->
   <div id="app-container">
 
     <!-- HEADER -->
     <header class="app-header">
       <div class="header-inner">
+
         <div class="logo">
           <span class="logo-icon">✦</span>
           <span class="logo-text">Gratitude</span>
         </div>
+
         <div class="stats-bar">
+
+          <!-- Streak pill -->
           <div class="stat-pill" title="Current streak">
             <span class="stat-icon">🔥</span>
             <span class="stat-value" id="streak-current">0</span>
             <span class="stat-label">days</span>
           </div>
-          <div class="stat-pill" title="Total points">
+
+          <!-- Points pill — CLICKABLE, opens the shop -->
+          <button id="points-pill" class="stat-pill stat-pill-btn" title="Open Shop — spend your points!">
             <span class="stat-icon">⭐</span>
             <span class="stat-value" id="points-total">0</span>
-            <span class="stat-label">points</span>
-          </div>
-          <!-- Stats button replaces the old record pill -->
+            <span class="stat-label">pts · Shop</span>
+          </button>
+
+          <!-- Stats button -->
           <button id="statsBtn" class="icon-btn stats-btn" title="Open statistics">
             📊 <span class="stat-label">Stats</span>
           </button>
+
+          <!-- Settings -->
           <button id="settingsBtn" class="icon-btn" title="Settings">⚙️</button>
+
+          <!-- Avatar badge (shows active avatar icon) -->
+          <span id="header-avatar" class="header-avatar" title="Your avatar · click Shop to change">🌱</span>
+
+          <!-- Auth -->
           <button id="authBtn" class="icon-btn auth-pill" title="Account">
             <span id="authIcon">🚪</span>
             <span id="authLabel" class="auth-label"></span>
           </button>
+
         </div>
       </div>
     </header>
@@ -195,7 +250,7 @@
       <p>Every day counts. ✦</p>
     </footer>
 
-  </div>
+  </div><!-- /#app-container -->
 
   <script type="module" src="script.js"></script>
 </body>
