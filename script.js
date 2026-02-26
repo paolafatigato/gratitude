@@ -518,17 +518,48 @@ function openStatsModal() { renderStatsModal('all'); document.getElementById('st
 function renderStatsModal(catRange='all') {
   const all=loadAllData(); const { current, best, earned, entryStars, streakBonus }=calcStats();
   const available=getAvailablePoints();
+  const shopState=getShopState();
+
   const summaryRow=document.getElementById('stats-summary-row');
   summaryRow.innerHTML='';
+
+  // ── 5 numeric cards ──
   [
-    { icon:'⭐', value:available,    label:'Points Available' },
-    { icon:'🔥', value:current,      label:'Current Streak'  },
-    { icon:'🏆', value:best,         label:'Best Streak'     },
-    { icon:'✍️',  value:entryStars,   label:'Entry Stars'     },
-    { icon:'💥', value:streakBonus,  label:'Streak Bonuses'  },
+    { icon:'⭐', value:available,   label:'Points Available' },
+    { icon:'🔥', value:current,     label:'Current Streak'  },
+    { icon:'🏆', value:best,        label:'Best Streak'     },
+    { icon:'✍️',  value:entryStars,  label:'Entry Stars'     },
+    { icon:'💥', value:streakBonus, label:'Streak Bonuses'  },
   ].forEach(({ icon,value,label }) => {
     summaryRow.innerHTML+=`<div class="stats-card"><div class="stats-card-icon">${icon}</div><div class="stats-card-value">${value}</div><div class="stats-card-label">${label}</div></div>`;
   });
+
+  // ── Last mission accomplished — wide card below the 5 ──
+  const unlocked = shopState.unlockedMissions || [];
+  const lastId   = unlocked[unlocked.length - 1];
+  const lastMission = lastId ? MISSIONS.find(m => m.id === lastId) : null;
+  if (lastMission) {
+    summaryRow.innerHTML += `
+      <div class="stats-card stats-card--mission">
+        <span class="stats-card-mission-emoji">${lastMission.emoji}</span>
+        <div class="stats-card-mission-body">
+          <div class="stats-card-mission-label">Last mission accomplished</div>
+          <div class="stats-card-mission-name">${lastMission.name}</div>
+          <div class="stats-card-mission-desc">${lastMission.desc}</div>
+        </div>
+        <div class="stats-card-mission-badge">🎯 ${unlocked.length} / ${MISSIONS.length}</div>
+      </div>`;
+  } else {
+    summaryRow.innerHTML += `
+      <div class="stats-card stats-card--mission stats-card--mission-empty">
+        <span class="stats-card-mission-emoji">🎯</span>
+        <div class="stats-card-mission-body">
+          <div class="stats-card-mission-label">Last mission accomplished</div>
+          <div class="stats-card-mission-name" style="color:var(--color-text-muted);font-size:0.9rem">None yet — complete your first mission!</div>
+        </div>
+        <div class="stats-card-mission-badge">0 / ${MISSIONS.length}</div>
+      </div>`;
+  }
   const last6=getLast6Months();
   const monthChart=document.getElementById('stats-monthly-chart'); monthChart.innerHTML='';
   const maxC=Math.max(1,...last6.map(m=>m.completed));
@@ -867,12 +898,24 @@ function renderShopTab(tab) {
   const content=document.getElementById('shop-content');
   content.innerHTML='';
 
-  /* ── MISSIONS TAB (special rendering) ── */
+  /* ── MISSIONS TAB ── */
   if (tab==='missions') {
     content.className='shop-content shop-content--missions';
-    const all    = loadAllData();
-    const stats  = calcStats();
-    MISSIONS.forEach(mission => {
+    const all   = loadAllData();
+    const stats = calcStats();
+
+    // Sort: active first, then unlocked, then locked
+    const sorted = [...MISSIONS].sort((a, b) => {
+      const aActive   = shopState.active.avatar === a.id;
+      const bActive   = shopState.active.avatar === b.id;
+      const aUnlocked = shopState.unlockedMissions.includes(a.id);
+      const bUnlocked = shopState.unlockedMissions.includes(b.id);
+      if (aActive   !== bActive)   return aActive   ? -1 : 1;
+      if (aUnlocked !== bUnlocked) return aUnlocked ? -1 : 1;
+      return 0;
+    });
+
+    sorted.forEach(mission => {
       const unlocked = shopState.unlockedMissions.includes(mission.id);
       const active   = shopState.active.avatar === mission.id;
       const current  = Math.min(mission.target, mission.progress(all, stats));
@@ -881,7 +924,6 @@ function renderShopTab(tab) {
       const card = document.createElement('div');
       card.className = `mission-card${active?' mission-card--active':unlocked?' mission-card--unlocked':''}`;
 
-      // Action
       let actionHTML = '';
       if (active)        actionHTML = `<div class="shop-badge-active">✓ Equipped</div>`;
       else if (unlocked) actionHTML = `<button class="shop-btn shop-btn--equip" data-action="equip" data-id="${mission.id}">Equip</button>`;
@@ -903,10 +945,8 @@ function renderShopTab(tab) {
         </div>
         <div class="mission-action">${actionHTML}</div>
       `;
-
       card.querySelector('[data-action]')?.addEventListener('click', () => {
-        equipItem(mission.id);
-        renderShopTab('missions');
+        equipItem(mission.id); renderShopTab('missions');
       });
       content.appendChild(card);
     });
@@ -914,36 +954,72 @@ function renderShopTab(tab) {
   }
 
   /* ── REGULAR TABS (themes / fonts / avatars) ── */
-  content.className='shop-content'; // reset to grid
-  const items    = SHOP_CATALOG[tab];
+  content.className='shop-content';
   const singular = tab.replace(/s$/,'');
 
+  // For avatars: merge shop avatars + unlocked mission avatars
+  let items = [...SHOP_CATALOG[tab]];
+  if (tab === 'avatars') {
+    const missionAvatars = MISSIONS
+      .filter(m => shopState.unlockedMissions.includes(m.id))
+      .map(m => ({
+        id:   m.id,
+        emoji: m.emoji,
+        name:  m.name,
+        desc:  `🎯 Mission reward`,
+        cost:  0,
+        _fromMission: true,
+      }));
+    items = [...items, ...missionAvatars];
+  }
+
+  // Universal sort: equipped → owned/unlocked → affordable → locked
+  items = items.slice().sort((a, b) => {
+    const rank = item => {
+      const isActive  = shopState.active[singular] === item.id;
+      const isOwned   = shopState.owned.includes(item.id) || item._fromMission;
+      const canAfford = available >= item.cost;
+      if (isActive)  return 0;
+      if (isOwned)   return 1;
+      if (canAfford) return 2;
+      return 3;
+    };
+    const ra = rank(a), rb = rank(b);
+    if (ra !== rb) return ra - rb;
+    // Within the same tier, keep original order (stable sort)
+    return 0;
+  });
+
   items.forEach(item => {
-    const owned     = shopState.owned.includes(item.id);
-    const active    = shopState.active[singular]===item.id;
+    const owned     = shopState.owned.includes(item.id) || item._fromMission;
+    const active    = shopState.active[singular] === item.id;
     const canAfford = available >= item.cost;
 
-    const card=document.createElement('div');
-    card.className=`shop-card${active?' shop-card--active':owned?' shop-card--owned':!canAfford?' shop-card--locked':''}`;
+    const card = document.createElement('div');
+    card.className = `shop-card${active?' shop-card--active':owned?' shop-card--owned':!canAfford?' shop-card--locked':''}`;
 
-    let previewHTML='';
+    let previewHTML = '';
     if (tab==='themes') {
-      const sw=item.swatches.map(c=>`<span class="theme-swatch" style="background:${c}"></span>`).join('');
-      previewHTML=`<div class="shop-preview--theme">${sw}</div>`;
+      const sw = item.swatches.map(c=>`<span class="theme-swatch" style="background:${c}"></span>`).join('');
+      previewHTML = `<div class="shop-preview--theme">${sw}</div>`;
     } else if (tab==='fonts') {
-      previewHTML=`<div class="shop-preview--font" style="${item.previewStyle}">${item.preview}</div>`;
+      previewHTML = `<div class="shop-preview--font" style="${item.previewStyle}">${item.preview}</div>`;
     } else {
-      previewHTML=`<div class="shop-preview--avatar">${item.emoji}</div>`;
+      previewHTML = `<div class="shop-preview--avatar">${item.emoji}</div>`;
     }
 
-    const costLabel = item.cost===0 ? 'Free' : `${item.cost} ⭐`;
-    let actionHTML='';
-    if (active)         actionHTML=`<div class="shop-badge-active">✓ Equipped</div>`;
-    else if (owned)     actionHTML=`<button class="shop-btn shop-btn--equip" data-action="equip" data-id="${item.id}">Equip</button>`;
-    else if (canAfford) actionHTML=`<button class="shop-btn shop-btn--buy" data-action="buy" data-id="${item.id}">Buy · ${costLabel}</button>`;
-    else                actionHTML=`<button class="shop-btn shop-btn--locked" disabled>Need ${item.cost} ⭐</button>`;
+    const costLabel = item.cost===0 ? (item._fromMission ? '🎯 Mission' : 'Free') : `${item.cost} ⭐`;
+    let actionHTML = '';
+    if (active)         actionHTML = `<div class="shop-badge-active">✓ Equipped</div>`;
+    else if (owned)     actionHTML = `<button class="shop-btn shop-btn--equip" data-action="equip" data-id="${item.id}">Equip</button>`;
+    else if (canAfford) actionHTML = `<button class="shop-btn shop-btn--buy" data-action="buy" data-id="${item.id}">Buy · ${costLabel}</button>`;
+    else                actionHTML = `<button class="shop-btn shop-btn--locked" disabled>Need ${item.cost} ⭐</button>`;
 
-    card.innerHTML=`${previewHTML}<div class="shop-card-name">${item.name}</div><div class="shop-card-sub">${item.desc}</div>${actionHTML}`;
+    // Badge for mission rewards
+    const missionTag = item._fromMission
+      ? `<div class="shop-card-mission-tag">🎯 Mission</div>` : '';
+
+    card.innerHTML = `${previewHTML}<div class="shop-card-name">${item.name}</div>${missionTag}<div class="shop-card-sub">${item.desc}</div>${actionHTML}`;
     card.querySelector('[data-action]')?.addEventListener('click', e => {
       const { action, id } = e.currentTarget.dataset;
       if (action==='buy') {
@@ -955,6 +1031,8 @@ function renderShopTab(tab) {
     content.appendChild(card);
   });
 }
+
+
 
 
 /* ╔══════════════════════════════════════════════════╗
