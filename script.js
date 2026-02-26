@@ -12,8 +12,8 @@
    9.  PHOTO UPLOAD
    10. CALENDAR
    11. STATISTICS MODAL
-   12. ★ SHOP SYSTEM ★   ← new
-   13. AUTH UI
+   12. SHOP SYSTEM
+   13. PROFILE MODAL      ← new
    14. EVENT LISTENERS
    15. INIT
    ================================================ */
@@ -27,7 +27,7 @@ import { initializeApp }
   from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
 import { getAuth, onAuthStateChanged,
          signInWithEmailAndPassword, createUserWithEmailAndPassword,
-         signOut, GoogleAuthProvider, signInWithPopup }
+         signOut, GoogleAuthProvider, signInWithPopup, updateProfile }
   from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, collection, getDocs }
   from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
@@ -55,8 +55,8 @@ const googleProvider = new GoogleAuthProvider();
    ╚══════════════════════════════╝ */
 
 const CONFIG = {
-  MIN_ENTRIES:      3,
-  POINTS_PER_DAY:   10,
+  MIN_ENTRIES:       3,
+  POINTS_PER_DAY:    10,
   AUTOSAVE_DELAY_MS: 1400,
 
   DEFAULT_CATEGORIES: [
@@ -75,6 +75,7 @@ const CONFIG = {
   STORAGE_KEY:          'gratitude_data',
   SETTINGS_STORAGE_KEY: 'gratitudeSettings',
   SHOP_STORAGE_KEY:     'gratitude_shop',
+  PROFILE_STORAGE_KEY:  'gratitude_profile',
 
   PHOTO_MAX_SIZE: 900,
   PHOTO_QUALITY:  0.75,
@@ -89,7 +90,9 @@ const state = { currentDate: new Date() };
 
 let settings = { categories: [...CONFIG.DEFAULT_CATEGORIES] };
 
-function saveSettings() { localStorage.setItem(CONFIG.SETTINGS_STORAGE_KEY, JSON.stringify(settings)); }
+function saveSettings() {
+  localStorage.setItem(CONFIG.SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+}
 function loadSettings() {
   const s = localStorage.getItem(CONFIG.SETTINGS_STORAGE_KEY);
   if (s) { try { settings = JSON.parse(s); } catch(e) {} }
@@ -192,17 +195,17 @@ function dateToKey(date) {
 }
 function keyToDate(key) { const [y,m,d]=key.split('-').map(Number); return new Date(y,m-1,d); }
 function formatDate(date) {
-  const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const days   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   return {
-    dayName: days[date.getDay()],
-    dateStr: `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`,
-    monthYear: `${months[date.getMonth()]} ${date.getFullYear()}`,
-    monthKey: `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`,
+    dayName:    days[date.getDay()],
+    dateStr:    `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`,
+    monthYear:  `${months[date.getMonth()]} ${date.getFullYear()}`,
+    monthKey:   `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`,
     monthShort: `${months[date.getMonth()].slice(0,3)} ${date.getFullYear()}`,
   };
 }
-function addDays(date,n) { const d=new Date(date); d.setDate(d.getDate()+n); return d; }
+function addDays(date, n) { const d=new Date(date); d.setDate(d.getDate()+n); return d; }
 function todayKey() { return dateToKey(new Date()); }
 
 
@@ -225,7 +228,6 @@ function calcStats() {
   return { current, best, earned };
 }
 
-/** Returns points available to spend = earned - spent */
 function getAvailablePoints() {
   const { earned } = calcStats();
   return Math.max(0, earned - getShopState().spent);
@@ -233,9 +235,8 @@ function getAvailablePoints() {
 
 function updateStatsUI() {
   const { current } = calcStats();
-  const available   = getAvailablePoints();
   document.getElementById('streak-current').textContent = current;
-  document.getElementById('points-total').textContent   = available;
+  document.getElementById('points-total').textContent   = getAvailablePoints();
 }
 
 
@@ -260,7 +261,9 @@ async function performSave() {
   setAutosaveStatus('saving', 'Saving…');
   try {
     await saveDay(dateKey, { gratitudes, happiness, completed, savedAt: new Date().toISOString() });
-    setAutosaveStatus('saved', completed ? '✓ Saved · streak active 🔥' : `✓ Saved · ${validCount}/${CONFIG.MIN_ENTRIES} for streak`);
+    setAutosaveStatus('saved', completed
+      ? '✓ Saved · streak active 🔥'
+      : `✓ Saved · ${validCount}/${CONFIG.MIN_ENTRIES} for streak`);
   } catch(e) {
     setAutosaveStatus('error', '⚠ Save failed — check connection');
   }
@@ -286,7 +289,7 @@ function readFormData() {
     category: el.querySelector('.entry-category').value,
     photoUrl: el.dataset.photoUrl || '',
   }));
-  return { gratitudes, happiness: parseInt(document.getElementById('happiness-slider').value,10) };
+  return { gratitudes, happiness: parseInt(document.getElementById('happiness-slider').value, 10) };
 }
 
 function createEntryElement(index, removable=false, data=null) {
@@ -294,7 +297,8 @@ function createEntryElement(index, removable=false, data=null) {
   div.className='gratitude-entry'; div.dataset.index=index;
   if (data?.photoUrl) div.dataset.photoUrl=data.photoUrl;
   const catOpts = ['<option value="">No category</option>',
-    ...getActiveCategories().map(c => `<option value="${c.label}" ${data?.category===c.label?'selected':''}>${c.emoji} ${c.label}</option>`)
+    ...getActiveCategories().map(c =>
+      `<option value="${c.label}" ${data?.category===c.label?'selected':''}>${c.emoji} ${c.label}</option>`)
   ].join('');
   const removeBtn = removable ? `<button class="btn-remove" title="Remove">✕</button>` : '';
   div.innerHTML = `
@@ -305,24 +309,30 @@ function createEntryElement(index, removable=false, data=null) {
     </div>
     <div class="entry-actions">
       <select class="entry-category" data-index="${index}">${catOpts}</select>
-      <button class="btn-photo" type="button">📷</button>
+      <button class="btn-photo" type="button">📷 Photo</button>
       <input type="file" class="photo-file-input" accept="image/*" style="display:none;" />
     </div>`;
   if (data?.photoUrl) attachPhotoPreview(div, data.photoUrl);
   if (data?.text?.trim()) div.classList.add('filled');
   const textarea = div.querySelector('.entry-text');
-  textarea.addEventListener('input',  () => { div.classList.toggle('filled', textarea.value.trim().length>0); triggerAutoSave(false); });
-  textarea.addEventListener('blur',   () => triggerAutoSave(true));
+  textarea.addEventListener('input', () => {
+    div.classList.toggle('filled', textarea.value.trim().length > 0);
+    triggerAutoSave(false);
+  });
+  textarea.addEventListener('blur', () => triggerAutoSave(true));
   div.querySelector('.btn-remove')?.addEventListener('click', () => { div.remove(); renumberEntries(); triggerAutoSave(true); });
   div.querySelector('.entry-category').addEventListener('change', () => triggerAutoSave(true));
   div.querySelector('.btn-photo').addEventListener('click', () => div.querySelector('.photo-file-input').click());
-  div.querySelector('.photo-file-input').addEventListener('change', e => { if(e.target.files[0]) handlePhotoSelected(div, e.target.files[0]); });
+  div.querySelector('.photo-file-input').addEventListener('change', e => {
+    if (e.target.files[0]) handlePhotoSelected(div, e.target.files[0]);
+  });
   return div;
 }
 
 function renumberEntries() {
   document.querySelectorAll('.gratitude-entry').forEach((el,i) => {
-    el.dataset.index=i; el.querySelector('.entry-number').textContent=(i+1)+'.';
+    el.dataset.index=i;
+    el.querySelector('.entry-number').textContent=(i+1)+'.';
     el.querySelectorAll('[data-index]').forEach(c => { c.dataset.index=i; });
   });
 }
@@ -330,12 +340,12 @@ function renumberEntries() {
 async function renderDay(dateKey) {
   const data = await loadDay(dateKey);
   const list = document.getElementById('gratitude-list');
-  list.innerHTML='';
-  const gratitudes = data?.gratitudes||[];
+  list.innerHTML = '';
+  const gratitudes = data?.gratitudes || [];
   const count = Math.max(gratitudes.length, CONFIG.MIN_ENTRIES);
   for (let i=0; i<count; i++) list.appendChild(createEntryElement(i, i>=CONFIG.MIN_ENTRIES, gratitudes[i]||null));
   const val = data?.happiness ?? 5;
-  document.getElementById('happiness-slider').value=val;
+  document.getElementById('happiness-slider').value = val;
   updateHappinessUI(val);
   const { dayName, dateStr } = formatDate(state.currentDate);
   document.getElementById('display-day').textContent  = dayName;
@@ -348,7 +358,7 @@ function updateHappinessUI(value) {
   document.getElementById('happiness-value').textContent = value;
   const emojiEl = document.getElementById('happiness-emoji');
   emojiEl.textContent = CONFIG.HAPPINESS_EMOJIS[value-1];
-  emojiEl.style.transform='scale(1.2)';
+  emojiEl.style.transform = 'scale(1.2)';
   setTimeout(() => { emojiEl.style.transform=''; }, 200);
 }
 
@@ -358,12 +368,12 @@ function updateHappinessUI(value) {
    ╚══════════════════════════════╝ */
 
 function resizeImage(file) {
-  return new Promise((resolve,reject) => {
-    const reader=new FileReader(); reader.onerror=reject;
-    reader.onload=e => {
-      const img=new Image(); img.onerror=reject;
-      img.onload=() => {
-        let {width:w,height:h}=img; const max=CONFIG.PHOTO_MAX_SIZE;
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader(); reader.onerror=reject;
+    reader.onload = e => {
+      const img = new Image(); img.onerror=reject;
+      img.onload = () => {
+        let {width:w, height:h} = img; const max=CONFIG.PHOTO_MAX_SIZE;
         if (w>h) { if(w>max){h=Math.round(h*max/w);w=max;} } else { if(h>max){w=Math.round(w*max/h);h=max;} }
         const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
         canvas.getContext('2d').drawImage(img,0,0,w,h);
@@ -379,9 +389,9 @@ function attachPhotoPreview(entryEl, url) {
   entryEl.querySelector('.photo-preview-wrap')?.remove();
   const wrap=document.createElement('div'); wrap.className='photo-preview-wrap';
   const img=document.createElement('img'); img.src=url; img.className='photo-preview'; img.alt='Gratitude photo';
-  const removeBtn=document.createElement('button'); removeBtn.className='btn-remove-photo'; removeBtn.textContent='✕';
-  removeBtn.onclick=()=>{ wrap.remove(); delete entryEl.dataset.photoUrl; triggerAutoSave(true); };
-  wrap.append(img,removeBtn);
+  const rmBtn=document.createElement('button'); rmBtn.className='btn-remove-photo'; rmBtn.textContent='✕';
+  rmBtn.onclick=()=>{ wrap.remove(); delete entryEl.dataset.photoUrl; triggerAutoSave(true); };
+  wrap.append(img,rmBtn);
   entryEl.querySelector('.entry-actions').insertAdjacentElement('afterend',wrap);
   entryEl.dataset.photoUrl=url;
 }
@@ -404,7 +414,10 @@ async function handlePhotoSelected(entryEl, file) {
       reader.onerror=()=>ind.remove();
       reader.readAsDataURL(resized);
     }
-  } catch(err) { ind.textContent='⚠ Photo failed.'; setTimeout(()=>ind.remove(),4000); }
+  } catch(err) {
+    ind.textContent='⚠ Photo failed.'; setTimeout(()=>ind.remove(),4000);
+    console.error('Photo error:', err);
+  }
 }
 
 
@@ -536,95 +549,91 @@ function getHappinessByMonth(all,monthKeys) {
 
 /* ╔══════════════════════════════════════════════════╗
    ║  12. SHOP SYSTEM                                 ║
-   ╚══════════════════════════════════════════════════╝
+   ╚══════════════════════════════════════════════════╝ */
 
-   ECONOMY
-   ─────────────────────────────────────────────────
-   earnedPoints  = completedDays × 10  (from calcStats)
-   spentPoints   = saved in shopState.spent
-   availablePoints = earned − spent
+/* ── CATALOG ──
+   Each theme includes --color-accent-dark and --focus-ring
+   so ALL interactive element colors change with the theme. */
 
-   SHOP STATE (localStorage + Firestore)
-   ─────────────────────────────────────────────────
-   {
-     owned:  string[]   // item IDs the user has bought
-     active: { theme, font, avatar }  // currently equipped
-     spent:  number     // total ⭐ spent ever
-   }
-
-   CATALOG
-   ─────────────────────────────────────────────────
-   Each item: { id, name, desc, cost, type, ... }
-   type = 'theme' | 'font' | 'avatar'
-*/
-
-/* ── CATALOG DEFINITION ── */
 const SHOP_CATALOG = {
 
   themes: [
     {
       id: 'theme_journal', name: 'Warm Cream', desc: 'The cozy default', cost: 0,
       swatches: ['#faf6f0','#c2714f','#8fad88'],
-      vars: { /* default — no override needed */ }
+      vars: {} // default — app-overrides stays empty → style.css :root values apply
     },
     {
       id: 'theme_forest', name: 'Forest', desc: 'Deep greens & moss', cost: 30,
       swatches: ['#f0f4ee','#3a7d44','#7db87f'],
       vars: {
-        '--color-bg':'#f0f4ee', '--color-surface':'#f8fbf6',
-        '--color-border':'#c5d9c0', '--color-accent':'#3a7d44',
-        '--color-accent-alt':'#7db87f', '--color-text':'#1e3320',
-        '--color-text-muted':'#6a8f6e', '--color-highlight':'#daecd8',
+        '--color-bg':'#f0f4ee',       '--color-surface':'#f8fbf6',
+        '--color-border':'#c5d9c0',   '--color-accent':'#3a7d44',
+        '--color-accent-dark':'#2b5e33', '--color-accent-alt':'#7db87f',
+        '--color-text':'#1e3320',     '--color-text-muted':'#6a8f6e',
+        '--color-highlight':'#daecd8',
+        '--focus-ring':'rgba(58,125,68,0.20)', '--shadow-accent':'rgba(58,125,68,0.30)',
       }
     },
     {
       id: 'theme_ocean', name: 'Ocean', desc: 'Deep blue & teal', cost: 30,
       swatches: ['#eef4f8','#2c7da0','#52b2cf'],
       vars: {
-        '--color-bg':'#eef4f8', '--color-surface':'#f5f9fc',
-        '--color-border':'#b8d4e4', '--color-accent':'#2c7da0',
-        '--color-accent-alt':'#52b2cf', '--color-text':'#132635',
-        '--color-text-muted':'#5a8aa4', '--color-highlight':'#d4e8f2',
+        '--color-bg':'#eef4f8',       '--color-surface':'#f5f9fc',
+        '--color-border':'#b8d4e4',   '--color-accent':'#2c7da0',
+        '--color-accent-dark':'#1d5f7c', '--color-accent-alt':'#52b2cf',
+        '--color-text':'#132635',     '--color-text-muted':'#5a8aa4',
+        '--color-highlight':'#d4e8f2',
+        '--focus-ring':'rgba(44,125,160,0.20)', '--shadow-accent':'rgba(44,125,160,0.30)',
       }
     },
     {
       id: 'theme_lavender', name: 'Lavender', desc: 'Soft purples & lilac', cost: 30,
       swatches: ['#f4f0fb','#7c5cbf','#b89fe0'],
       vars: {
-        '--color-bg':'#f4f0fb', '--color-surface':'#faf8fe',
-        '--color-border':'#d5c8f0', '--color-accent':'#7c5cbf',
-        '--color-accent-alt':'#b89fe0', '--color-text':'#2a1f40',
-        '--color-text-muted':'#8a76b0', '--color-highlight':'#ece5f8',
+        '--color-bg':'#f4f0fb',       '--color-surface':'#faf8fe',
+        '--color-border':'#d5c8f0',   '--color-accent':'#7c5cbf',
+        '--color-accent-dark':'#5e3fa0', '--color-accent-alt':'#b89fe0',
+        '--color-text':'#2a1f40',     '--color-text-muted':'#8a76b0',
+        '--color-highlight':'#ece5f8',
+        '--focus-ring':'rgba(124,92,191,0.20)', '--shadow-accent':'rgba(124,92,191,0.30)',
       }
     },
     {
       id: 'theme_rose', name: 'Rosé', desc: 'Blush & warm pinks', cost: 40,
       swatches: ['#fdf0f2','#c25c7a','#e8a0b2'],
       vars: {
-        '--color-bg':'#fdf0f2', '--color-surface':'#fff6f8',
-        '--color-border':'#f0c8d4', '--color-accent':'#c25c7a',
-        '--color-accent-alt':'#e8a0b2', '--color-text':'#3a1824',
-        '--color-text-muted':'#a06878', '--color-highlight':'#fbe0e8',
+        '--color-bg':'#fdf0f2',       '--color-surface':'#fff6f8',
+        '--color-border':'#f0c8d4',   '--color-accent':'#c25c7a',
+        '--color-accent-dark':'#9e3d5a', '--color-accent-alt':'#e8a0b2',
+        '--color-text':'#3a1824',     '--color-text-muted':'#a06878',
+        '--color-highlight':'#fbe0e8',
+        '--focus-ring':'rgba(194,92,122,0.20)', '--shadow-accent':'rgba(194,92,122,0.30)',
       }
     },
     {
       id: 'theme_sunset', name: 'Sunset', desc: 'Golden hour vibes', cost: 40,
       swatches: ['#fdf5e8','#c47c2b','#e8b46a'],
       vars: {
-        '--color-bg':'#fdf5e8', '--color-surface':'#fffbf2',
-        '--color-border':'#f0d8a8', '--color-accent':'#c47c2b',
-        '--color-accent-alt':'#e8b46a', '--color-text':'#3a2808',
-        '--color-text-muted':'#a08040', '--color-highlight':'#faefd0',
+        '--color-bg':'#fdf5e8',       '--color-surface':'#fffbf2',
+        '--color-border':'#f0d8a8',   '--color-accent':'#c47c2b',
+        '--color-accent-dark':'#9e5f18', '--color-accent-alt':'#e8b46a',
+        '--color-text':'#3a2808',     '--color-text-muted':'#a08040',
+        '--color-highlight':'#faefd0',
+        '--focus-ring':'rgba(196,124,43,0.20)', '--shadow-accent':'rgba(196,124,43,0.30)',
       }
     },
     {
       id: 'theme_dark', name: 'Night Mode', desc: 'Dark & elegant', cost: 50,
       swatches: ['#1a1612','#c2714f','#8fad88'],
       vars: {
-        '--color-bg':'#1a1612', '--color-surface':'#231e19',
-        '--color-border':'#3d3028', '--color-accent':'#c2714f',
-        '--color-accent-alt':'#8fad88', '--color-text':'#f0e8dc',
-        '--color-text-muted':'#8a7060', '--color-highlight':'#2e241e',
+        '--color-bg':'#1a1612',       '--color-surface':'#231e19',
+        '--color-border':'#3d3028',   '--color-accent':'#c2714f',
+        '--color-accent-dark':'#a05038', '--color-accent-alt':'#8fad88',
+        '--color-text':'#f0e8dc',     '--color-text-muted':'#8a7060',
+        '--color-highlight':'#2e241e',
+        '--focus-ring':'rgba(194,113,79,0.25)', '--shadow-accent':'rgba(194,113,79,0.35)',
+        '--shadow-base':'rgba(0,0,0,0.25)', '--shadow-base-md':'rgba(0,0,0,0.35)', '--shadow-base-lg':'rgba(0,0,0,0.45)',
       }
     },
   ],
@@ -632,55 +641,42 @@ const SHOP_CATALOG = {
   fonts: [
     {
       id: 'font_journal', name: 'Journal', desc: 'Handwritten & warm', cost: 0,
-      preview: 'Aa',
-      previewStyle: "font-family:'Caveat',cursive",
-      vars: {
-        '--font-display':"'Caveat', cursive",
-        '--font-body':"'Lora', Georgia, serif",
-      }
+      preview: 'Aa', previewStyle: "font-family:'Caveat',cursive",
+      vars: { '--font-display':"'Caveat', cursive", '--font-body':"'Lora', Georgia, serif" }
     },
     {
       id: 'font_elegant', name: 'Elegant', desc: 'Timeless & refined', cost: 25,
-      preview: 'Aa',
-      previewStyle: "font-family:'Playfair Display',serif",
-      vars: {
-        '--font-display':"'Playfair Display', serif",
-        '--font-body':"'Cormorant Garamond', Georgia, serif",
-      }
+      preview: 'Aa', previewStyle: "font-family:'Playfair Display',serif",
+      vars: { '--font-display':"'Playfair Display', serif", '--font-body':"'Cormorant Garamond', Georgia, serif" }
     },
     {
       id: 'font_modern', name: 'Modern', desc: 'Clean & minimal', cost: 25,
-      preview: 'Aa',
-      previewStyle: "font-family:'Syne',sans-serif",
-      vars: {
-        '--font-display':"'Syne', sans-serif",
-        '--font-body':"'DM Sans', system-ui, sans-serif",
-      }
+      preview: 'Aa', previewStyle: "font-family:'Syne',sans-serif",
+      vars: { '--font-display':"'Syne', sans-serif", '--font-body':"'DM Sans', system-ui, sans-serif" }
     },
     {
       id: 'font_dreamy', name: 'Dreamy', desc: 'Playful & soft', cost: 25,
-      preview: 'Aa',
-      previewStyle: "font-family:'Pacifico',cursive",
-      vars: {
-        '--font-display':"'Pacifico', cursive",
-        '--font-body':"'Nunito', system-ui, sans-serif",
-      }
+      preview: 'Aa', previewStyle: "font-family:'Pacifico',cursive",
+      vars: { '--font-display':"'Pacifico', cursive", '--font-body':"'Nunito', system-ui, sans-serif" }
     },
   ],
 
   avatars: [
-    { id:'av_sprout',    emoji:'🌱', name:'Sprout',    desc:'Your first step',  cost:0  },
-    { id:'av_sun',       emoji:'☀️',  name:'Sunshine',  desc:'Bright days',      cost:20 },
-    { id:'av_moon',      emoji:'🌙', name:'Moonchild', desc:'Quiet & reflective',cost:20 },
-    { id:'av_star',      emoji:'⭐', name:'Stardust',  desc:'You shine!',        cost:20 },
-    { id:'av_butterfly', emoji:'🦋', name:'Butterfly', desc:'Growth & change',   cost:20 },
-    { id:'av_cat',       emoji:'🐱', name:'Kitty',     desc:'Cozy & curious',    cost:30 },
-    { id:'av_fox',       emoji:'🦊', name:'Fox',       desc:'Clever & warm',     cost:30 },
-    { id:'av_owl',       emoji:'🦉', name:'Owl',       desc:'Wise & patient',    cost:30 },
-    { id:'av_bear',      emoji:'🐻', name:'Bear',      desc:'Gentle & strong',   cost:30 },
-    { id:'av_dragon',    emoji:'🐉', name:'Dragon',    desc:'Legendary power',   cost:50 },
-    { id:'av_unicorn',   emoji:'🦄', name:'Unicorn',   desc:'Pure magic',        cost:50 },
-    { id:'av_phoenix',   emoji:'🦅', name:'Phoenix',   desc:'Rise every day',    cost:50 },
+    /* Free default — the "personcina" */
+    { id:'av_person',    emoji:'👤', name:'Me',         desc:'The default you',  cost:0  },
+    /* Purchasable */
+    { id:'av_sprout',    emoji:'🌱', name:'Sprout',     desc:'First steps',      cost:10 },
+    { id:'av_sun',       emoji:'☀️',  name:'Sunshine',   desc:'Bright days',      cost:20 },
+    { id:'av_moon',      emoji:'🌙', name:'Moonchild',  desc:'Quiet & reflective',cost:20 },
+    { id:'av_star',      emoji:'⭐', name:'Stardust',   desc:'You shine!',        cost:20 },
+    { id:'av_butterfly', emoji:'🦋', name:'Butterfly',  desc:'Growth & change',   cost:20 },
+    { id:'av_cat',       emoji:'🐱', name:'Kitty',      desc:'Cozy & curious',    cost:30 },
+    { id:'av_fox',       emoji:'🦊', name:'Fox',        desc:'Clever & warm',     cost:30 },
+    { id:'av_owl',       emoji:'🦉', name:'Owl',        desc:'Wise & patient',    cost:30 },
+    { id:'av_bear',      emoji:'🐻', name:'Bear',       desc:'Gentle & strong',   cost:30 },
+    { id:'av_dragon',    emoji:'🐉', name:'Dragon',     desc:'Legendary power',   cost:50 },
+    { id:'av_unicorn',   emoji:'🦄', name:'Unicorn',    desc:'Pure magic',        cost:50 },
+    { id:'av_phoenix',   emoji:'🦅', name:'Phoenix',    desc:'Rise every day',    cost:50 },
   ],
 };
 
@@ -688,8 +684,8 @@ const SHOP_CATALOG = {
 
 function getDefaultShopState() {
   return {
-    owned:  ['theme_journal','font_journal','av_sprout'], // always owned
-    active: { theme:'theme_journal', font:'font_journal', avatar:'av_sprout' },
+    owned:  ['theme_journal','font_journal','av_person'],
+    active: { theme:'theme_journal', font:'font_journal', avatar:'av_person' },
     spent:  0,
   };
 }
@@ -697,13 +693,19 @@ function getDefaultShopState() {
 function getShopState() {
   try {
     const raw = localStorage.getItem(CONFIG.SHOP_STORAGE_KEY);
-    return raw ? { ...getDefaultShopState(), ...JSON.parse(raw) } : getDefaultShopState();
+    if (!raw) return getDefaultShopState();
+    const saved = JSON.parse(raw);
+    const merged = { ...getDefaultShopState(), ...saved };
+    // Always own the free items
+    ['theme_journal','font_journal','av_person'].forEach(id => {
+      if (!merged.owned.includes(id)) merged.owned.push(id);
+    });
+    return merged;
   } catch(e) { return getDefaultShopState(); }
 }
 
 function saveShopState(shopState) {
   localStorage.setItem(CONFIG.SHOP_STORAGE_KEY, JSON.stringify(shopState));
-  // Sync to Firestore if logged in
   if (auth.currentUser) {
     setDoc(doc(db,'users',auth.currentUser.uid,'shop','state'), shopState)
       .catch(e => console.warn('Shop sync failed:', e.message));
@@ -716,10 +718,8 @@ async function syncShopFromFirestore() {
     const snap = await getDoc(doc(db,'users',auth.currentUser.uid,'shop','state'));
     if (snap.exists()) {
       const cloud = snap.data();
-      // Merge: cloud wins for owned/active/spent, keep free defaults
       const merged = { ...getDefaultShopState(), ...cloud };
-      // Ensure free items are always owned
-      ['theme_journal','font_journal','av_sprout'].forEach(id => {
+      ['theme_journal','font_journal','av_person'].forEach(id => {
         if (!merged.owned.includes(id)) merged.owned.push(id);
       });
       localStorage.setItem(CONFIG.SHOP_STORAGE_KEY, JSON.stringify(merged));
@@ -727,7 +727,9 @@ async function syncShopFromFirestore() {
   } catch(e) { console.warn('Shop cloud sync failed:', e.message); }
 }
 
-/* ── APPLY ACTIVE ITEMS (CSS injection) ── */
+/* ── APPLY ACTIVE ITEMS ──
+   Injects CSS variable overrides into #app-overrides (which lives
+   AFTER style.css in <head>) and updates every avatar display. */
 
 function applyActiveItems() {
   const { active } = getShopState();
@@ -735,30 +737,32 @@ function applyActiveItems() {
   const font   = SHOP_CATALOG.fonts.find(f  => f.id===active.font)   || SHOP_CATALOG.fonts[0];
   const avatar = SHOP_CATALOG.avatars.find(a => a.id===active.avatar) || SHOP_CATALOG.avatars[0];
 
-  // Merge all CSS variable overrides
+  // Merge theme + font vars and inject into :root override
   const vars = { ...theme.vars, ...font.vars };
-  const cssText = Object.keys(vars).length
-    ? `:root { ${Object.entries(vars).map(([k,v]) => `${k}: ${v};`).join(' ')} }`
+  const entries = Object.entries(vars);
+  const cssText = entries.length
+    ? `:root {\n${entries.map(([k,v]) => `  ${k}: ${v};`).join('\n')}\n}`
     : '';
   document.getElementById('app-overrides').textContent = cssText;
 
-  // Update avatar everywhere
-  const av = avatar.emoji;
-  document.querySelectorAll('#header-avatar, #shop-avatar-big').forEach(el => { if(el) el.textContent=av; });
+  // Update every place the avatar is shown
+  refreshAvatarDisplays(avatar.emoji);
 }
 
-/* ── PURCHASE & EQUIP LOGIC ── */
+/** Update all avatar display elements on the page. */
+function refreshAvatarDisplays(emoji) {
+  const ids = ['header-avatar-emoji','shop-avatar-big','profile-avatar-display'];
+  ids.forEach(id => { const el=document.getElementById(id); if(el) el.textContent=emoji; });
+}
 
-/**
- * Attempt to buy an item. Returns true if successful.
- */
+/* ── BUY / EQUIP ── */
+
 function buyItem(itemId) {
   const shopState = getShopState();
-  if (shopState.owned.includes(itemId)) return false; // already owned
+  if (shopState.owned.includes(itemId)) return false;
   const item = findItemById(itemId);
   if (!item) return false;
-  const available = getAvailablePoints();
-  if (available < item.cost) return false; // can't afford
+  if (getAvailablePoints() < item.cost) return false;
   shopState.owned.push(itemId);
   shopState.spent += item.cost;
   saveShopState(shopState);
@@ -766,119 +770,89 @@ function buyItem(itemId) {
   return true;
 }
 
-/**
- * Equip an owned item as the active one for its category.
- */
 function equipItem(itemId) {
   const shopState = getShopState();
   if (!shopState.owned.includes(itemId)) return;
   const item = findItemById(itemId);
   if (!item) return;
-  const type = item._type; // 'theme' | 'font' | 'avatar'
-  shopState.active[type] = itemId;
+  shopState.active[item._type] = itemId;
   saveShopState(shopState);
   applyActiveItems();
 }
 
 function findItemById(id) {
   for (const [type, list] of Object.entries(SHOP_CATALOG)) {
-    const singular = type.replace(/s$/,''); // 'themes'→'theme', 'fonts'→'font', 'avatars'→'avatar'
+    const singular = type.replace(/s$/,'');
     const item = list.find(i => i.id===id);
     if (item) return { ...item, _type: singular };
   }
   return null;
 }
 
-/* ── SHOP MODAL RENDER ── */
+/* ── SHOP MODAL ── */
 
 let _shopActiveTab = 'themes';
 
-function openShopModal() {
-  renderShopTab(_shopActiveTab);
+function openShopModal(startTab) {
+  renderShopTab(startTab || _shopActiveTab);
   document.getElementById('shopModal').style.display='flex';
 }
 
 function renderShopTab(tab) {
   _shopActiveTab = tab;
-  const shopState  = getShopState();
-  const available  = getAvailablePoints();
+  const shopState = getShopState();
+  const available = getAvailablePoints();
   const { earned } = calcStats();
 
-  // Update balance display
-  const pointsDisp = document.getElementById('shop-points-display');
-  const earnedDisp = document.getElementById('shop-earned-display');
-  if (pointsDisp) pointsDisp.textContent = available;
-  if (earnedDisp) earnedDisp.textContent = earned;
+  const pd=document.getElementById('shop-points-display');
+  const ed=document.getElementById('shop-earned-display');
+  if(pd) pd.textContent=available;
+  if(ed) ed.textContent=earned;
 
-  // Update big avatar
   const bigAv = SHOP_CATALOG.avatars.find(a => a.id===shopState.active.avatar);
-  const bigAvEl = document.getElementById('shop-avatar-big');
-  if (bigAvEl && bigAv) bigAvEl.textContent = bigAv.emoji;
+  const bigEl = document.getElementById('shop-avatar-big');
+  if(bigEl && bigAv) bigEl.textContent=bigAv.emoji;
 
-  // Tab active state
-  document.querySelectorAll('.shop-tab').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.tab===tab);
-  });
+  document.querySelectorAll('.shop-tab').forEach(btn => btn.classList.toggle('active',btn.dataset.tab===tab));
 
-  const content = document.getElementById('shop-content');
-  content.innerHTML = '';
-
-  const items = SHOP_CATALOG[tab]; // themes | fonts | avatars
-  const singular = tab.replace(/s$/,'');
+  const content=document.getElementById('shop-content');
+  content.innerHTML='';
+  const items=SHOP_CATALOG[tab];
+  const singular=tab.replace(/s$/,'');
 
   items.forEach(item => {
-    const owned  = shopState.owned.includes(item.id);
-    const active = shopState.active[singular] === item.id;
+    const owned     = shopState.owned.includes(item.id);
+    const active    = shopState.active[singular]===item.id;
     const canAfford = available >= item.cost;
 
-    const card = document.createElement('div');
-    card.className = `shop-card${active?' shop-card--active':owned?' shop-card--owned':!canAfford?' shop-card--locked':''}`;
+    const card=document.createElement('div');
+    card.className=`shop-card${active?' shop-card--active':owned?' shop-card--owned':!canAfford?' shop-card--locked':''}`;
 
-    // Preview area
-    let previewHTML = '';
+    let previewHTML='';
     if (tab==='themes') {
-      const swatches = item.swatches.map(c => `<span class="theme-swatch" style="background:${c}"></span>`).join('');
-      previewHTML = `<div class="shop-preview--theme">${swatches}</div>`;
+      const sw=item.swatches.map(c=>`<span class="theme-swatch" style="background:${c}"></span>`).join('');
+      previewHTML=`<div class="shop-preview--theme">${sw}</div>`;
     } else if (tab==='fonts') {
-      previewHTML = `<div class="shop-preview--font" style="${item.previewStyle}">${item.preview}</div>`;
+      previewHTML=`<div class="shop-preview--font" style="${item.previewStyle}">${item.preview}</div>`;
     } else {
-      previewHTML = `<div class="shop-preview--avatar">${item.emoji}</div>`;
+      previewHTML=`<div class="shop-preview--avatar">${item.emoji}</div>`;
     }
 
-    // Cost label
-    const costLabel = item.cost === 0 ? 'Free' : `${item.cost} ⭐`;
+    const costLabel = item.cost===0 ? 'Free' : `${item.cost} ⭐`;
+    let actionHTML='';
+    if (active)       actionHTML=`<div class="shop-badge-active">✓ Equipped</div>`;
+    else if (owned)   actionHTML=`<button class="shop-btn shop-btn--equip" data-action="equip" data-id="${item.id}">Equip</button>`;
+    else if (canAfford) actionHTML=`<button class="shop-btn shop-btn--buy" data-action="buy" data-id="${item.id}">Buy · ${costLabel}</button>`;
+    else              actionHTML=`<button class="shop-btn shop-btn--locked" disabled>Need ${item.cost} ⭐</button>`;
 
-    // Action button / badge
-    let actionHTML = '';
-    if (active) {
-      actionHTML = `<div class="shop-badge-active">✓ Equipped</div>`;
-    } else if (owned) {
-      actionHTML = `<button class="shop-btn shop-btn--equip" data-action="equip" data-id="${item.id}">Equip</button>`;
-    } else if (canAfford) {
-      actionHTML = `<button class="shop-btn shop-btn--buy" data-action="buy" data-id="${item.id}">Buy · ${costLabel}</button>`;
-    } else {
-      actionHTML = `<button class="shop-btn shop-btn--locked" disabled>Need ${item.cost} ⭐</button>`;
-    }
+    card.innerHTML=`${previewHTML}<div class="shop-card-name">${item.name}</div><div class="shop-card-sub">${item.desc}</div>${actionHTML}`;
 
-    card.innerHTML = `
-      ${previewHTML}
-      <div class="shop-card-name">${item.name}</div>
-      <div class="shop-card-sub">${item.desc}</div>
-      ${actionHTML}
-    `;
-
-    // Wire button clicks
     card.querySelector('[data-action]')?.addEventListener('click', e => {
       const { action, id } = e.currentTarget.dataset;
       if (action==='buy') {
-        const success = buyItem(id);
-        if (success) {
-          card.classList.add('just-bought');
-          setTimeout(() => { renderShopTab(_shopActiveTab); }, 400);
-        }
+        if (buyItem(id)) { card.classList.add('just-bought'); setTimeout(()=>renderShopTab(_shopActiveTab),400); }
       } else if (action==='equip') {
-        equipItem(id);
-        renderShopTab(_shopActiveTab); // re-render to reflect change
+        equipItem(id); renderShopTab(_shopActiveTab);
       }
     });
 
@@ -887,31 +861,70 @@ function renderShopTab(tab) {
 }
 
 
-/* ╔══════════════════════════════╗
-   ║  13. AUTH UI                 ║
-   ╚══════════════════════════════╝ */
+/* ╔══════════════════════════════════════════════════╗
+   ║  13. PROFILE MODAL                               ║
+   ╚══════════════════════════════════════════════════╝
+   Opened by clicking the avatar button in the header.
+   Shows: big avatar, editable display name, email,
+   logout / login button, shortcut to shop.
+*/
 
-function showLoginModal(visible) {
-  document.getElementById('login-modal').style.display=visible?'flex':'none';
-  if (visible) {
-    document.getElementById('login-error').style.display='none';
-    document.getElementById('login-email').value='';
-    document.getElementById('login-password').value='';
+const PROFILE_KEY = CONFIG.PROFILE_STORAGE_KEY;
+
+/** Load display name from localStorage (fallback: Firebase displayName or empty). */
+function getDisplayName() {
+  const local = localStorage.getItem(PROFILE_KEY);
+  if (local) return local;
+  return auth.currentUser?.displayName || '';
+}
+
+/** Persist display name locally and to Firebase Auth + Firestore. */
+async function saveDisplayName(name) {
+  localStorage.setItem(PROFILE_KEY, name);
+  if (auth.currentUser) {
+    try {
+      await updateProfile(auth.currentUser, { displayName: name });
+      await setDoc(doc(db,'users',auth.currentUser.uid,'profile','data'), { displayName: name }, { merge:true });
+    } catch(e) { console.warn('Display name sync failed:', e.message); }
   }
 }
-function showLoginError(msg) {
-  const el=document.getElementById('login-error'); el.textContent=msg; el.style.display='block';
-}
-function updateAuthUI(user) {
-  const icon=document.getElementById('authIcon');
-  const label=document.getElementById('authLabel');
-  if (user) {
-    icon.textContent='👤';
-    label.textContent=user.displayName||user.email?.split('@')[0]||'You';
-    label.style.display='inline';
-  } else {
-    icon.textContent='🚪'; label.style.display='none'; label.textContent='';
+
+function openProfileModal() {
+  const shopState = getShopState();
+  const avatar    = SHOP_CATALOG.avatars.find(a => a.id===shopState.active.avatar) || SHOP_CATALOG.avatars[0];
+  const user      = auth.currentUser;
+  const name      = getDisplayName();
+
+  // Big avatar
+  const bigEl=document.getElementById('profile-avatar-display');
+  if(bigEl) { bigEl.textContent=avatar.emoji; }
+
+  // Name input
+  const nameInput=document.getElementById('profile-name-input');
+  if(nameInput) { nameInput.value=name; }
+
+  // Toast reset
+  const toast=document.getElementById('profile-name-saved-toast');
+  if(toast) toast.textContent='';
+
+  // Email
+  const emailEl=document.getElementById('profile-email');
+  if(emailEl) {
+    if (user?.email) { emailEl.textContent=user.email; emailEl.style.display='block'; }
+    else             { emailEl.style.display='none'; }
   }
+
+  // Actions
+  const actionsIn  =document.getElementById('profile-actions-loggedin');
+  const actionsOut =document.getElementById('profile-actions-loggedout');
+  if(actionsIn)  actionsIn.style.display  = user ? 'block' : 'none';
+  if(actionsOut) actionsOut.style.display = user ? 'none'  : 'block';
+
+  document.getElementById('profileModal').style.display='flex';
+}
+
+function closeProfileModal() {
+  document.getElementById('profileModal').style.display='none';
 }
 
 
@@ -923,17 +936,20 @@ function initEventListeners() {
 
   // Date navigation
   document.getElementById('btn-prev').addEventListener('click', async () => {
-    state.currentDate=addDays(state.currentDate,-1); await renderDay(dateToKey(state.currentDate)); renderCalendar();
+    state.currentDate=addDays(state.currentDate,-1);
+    await renderDay(dateToKey(state.currentDate)); renderCalendar();
   });
   document.getElementById('btn-next').addEventListener('click', async () => {
     const next=addDays(state.currentDate,1);
-    if (dateToKey(next)<=todayKey()) { state.currentDate=next; await renderDay(dateToKey(state.currentDate)); renderCalendar(); }
+    if (dateToKey(next)<=todayKey()) {
+      state.currentDate=next; await renderDay(dateToKey(state.currentDate)); renderCalendar();
+    }
   });
 
   // Add entry
   document.getElementById('btn-add-entry').addEventListener('click', () => {
     const list=document.getElementById('gratitude-list');
-    const entry=createEntryElement(list.querySelectorAll('.gratitude-entry').length,true);
+    const entry=createEntryElement(list.querySelectorAll('.gratitude-entry').length, true);
     list.appendChild(entry); entry.scrollIntoView({ behavior:'smooth', block:'nearest' });
   });
 
@@ -960,20 +976,51 @@ function initEventListeners() {
   document.getElementById('closeStats').addEventListener('click', () => document.getElementById('statsModal').style.display='none');
 
   // Settings
-  document.getElementById('settingsBtn').addEventListener('click', () => { renderSettingsUI(); document.getElementById('settingsModal').style.display='flex'; });
+  document.getElementById('settingsBtn').addEventListener('click', () => {
+    renderSettingsUI(); document.getElementById('settingsModal').style.display='flex';
+  });
   document.getElementById('closeSettings').addEventListener('click', () => document.getElementById('settingsModal').style.display='none');
 
-  // ★ SHOP — points pill opens shop
-  document.getElementById('points-pill').addEventListener('click', openShopModal);
-  document.getElementById('closeShop').addEventListener('click',  () => document.getElementById('shopModal').style.display='none');
+  // Shop — points pill
+  document.getElementById('points-pill').addEventListener('click', () => openShopModal('themes'));
+  document.getElementById('closeShop').addEventListener('click', () => document.getElementById('shopModal').style.display='none');
+  document.querySelectorAll('.shop-tab').forEach(btn => btn.addEventListener('click', () => renderShopTab(btn.dataset.tab)));
 
-  // Shop tab buttons
-  document.querySelectorAll('.shop-tab').forEach(btn => {
-    btn.addEventListener('click', () => renderShopTab(btn.dataset.tab));
+  // ── Avatar button → Profile modal ──
+  document.getElementById('avatarBtn').addEventListener('click', openProfileModal);
+  document.getElementById('closeProfile').addEventListener('click', closeProfileModal);
+
+  // Profile: save name
+  const nameInput=document.getElementById('profile-name-input');
+  const nameSave =document.getElementById('profile-name-save');
+  const toast    =document.getElementById('profile-name-saved-toast');
+
+  nameSave.addEventListener('click', async () => {
+    const name=nameInput.value.trim();
+    await saveDisplayName(name);
+    if(toast) { toast.textContent='✓ Name saved!'; setTimeout(()=>{ if(toast) toast.textContent=''; },2500); }
+    nameSave.style.opacity='0';
+  });
+  nameInput.addEventListener('input', () => { if(nameSave) nameSave.style.opacity='1'; });
+  nameInput.addEventListener('keydown', e => { if(e.key==='Enter') { e.preventDefault(); nameSave.click(); } });
+
+  // Profile: logout
+  document.getElementById('profile-logout-btn').addEventListener('click', async () => {
+    await signOut(auth);
+    closeProfileModal();
   });
 
-  // Auth
-  document.getElementById('authBtn').addEventListener('click', () => { if(auth.currentUser) signOut(auth); else showLoginModal(true); });
+  // Profile: sign in → open login modal
+  document.getElementById('profile-signin-btn').addEventListener('click', () => {
+    closeProfileModal(); showLoginModal(true);
+  });
+
+  // Profile: go to shop avatars tab
+  document.getElementById('profile-goto-shop').addEventListener('click', () => {
+    closeProfileModal(); openShopModal('avatars');
+  });
+
+  // Login modal
   document.getElementById('close-login-modal').addEventListener('click', () => showLoginModal(false));
   document.getElementById('btn-google-login').addEventListener('click', async () => {
     try { await signInWithPopup(auth,googleProvider); showLoginModal(false); }
@@ -995,10 +1042,23 @@ function initEventListeners() {
     catch(e) { showLoginError('Sign-up failed: '+e.message); }
   });
 
-  // Close any modal by clicking the backdrop
+  // Close any modal by clicking the dim backdrop
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', e => { if(e.target===overlay) overlay.style.display='none'; });
   });
+}
+
+/* ── LOGIN MODAL HELPERS ── */
+function showLoginModal(visible) {
+  document.getElementById('login-modal').style.display=visible?'flex':'none';
+  if (visible) {
+    document.getElementById('login-error').style.display='none';
+    document.getElementById('login-email').value='';
+    document.getElementById('login-password').value='';
+  }
+}
+function showLoginError(msg) {
+  const el=document.getElementById('login-error'); el.textContent=msg; el.style.display='block';
 }
 
 
@@ -1014,18 +1074,25 @@ async function init(user) {
   if (user) {
     await syncAllFromFirestore();
     await syncShopFromFirestore();
+    // Try to load saved display name from Firestore
+    try {
+      const snap=await getDoc(doc(db,'users',user.uid,'profile','data'));
+      if (snap.exists() && snap.data().displayName) {
+        localStorage.setItem(PROFILE_KEY, snap.data().displayName);
+      }
+    } catch(e) {}
   }
 
-  // Apply saved theme/font/avatar immediately
+  // Apply theme/font/avatar immediately (before first render)
   applyActiveItems();
 
   await renderDay(dateToKey(state.currentDate));
   renderCalendar();
   updateStatsUI();
 
-  const overlay = document.getElementById('loading-overlay');
+  const overlay=document.getElementById('loading-overlay');
   overlay.classList.add('hidden');
-  setTimeout(() => overlay.remove(), 500);
+  setTimeout(()=>overlay.remove(), 500);
 
   console.log('✦ Gratitude — started', user ? `(${user.email})` : '(guest)');
 }
@@ -1033,7 +1100,6 @@ async function init(user) {
 let _initialized = false;
 
 onAuthStateChanged(auth, async user => {
-  updateAuthUI(user);
   if (!_initialized) {
     _initialized = true;
     await init(user);
