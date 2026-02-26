@@ -195,10 +195,10 @@ body {
 /* ── 7. STATISTICS MODAL ── */
 .stats-modal-box { max-width: 560px; }
 .stats-modal-title { font-family: var(--font-display); color: var(--color-accent); font-size: 1.8rem; margin-bottom: var(--space-lg); }
-.stats-summary-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-sm); margin-bottom: var(--space-xl); }
+.stats-summary-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-sm); margin-bottom: var(--space-xl); }
 .stats-card { background: var(--color-highlight); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-md); text-align: center; }
 .stats-card-icon { font-size: 1.5rem; margin-bottom: 4px; }
-.stats-card-value { font-family: var(--font-display); font-size: 2.2rem; color: var(--color-accent); font-weight: 700; line-height: 1; }
+.stats-card-value { font-family: var(--font-display); font-size: 1.7rem; color: var(--color-accent); font-weight: 700; line-height: 1; }
 .stats-card-label { font-size: 0.72rem; color: var(--color-text-muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
 .stats-section { margin-bottom: var(--space-xl); }
 .stats-section-heading { font-family: var(--font-display); font-size: 1.1rem; color: var(--color-text); margin-bottom: var(--space-md); }
@@ -787,8 +787,159 @@ body {
   .date-full  { font-size: 1.5rem; }
   .logo-text  { font-size: 1.3rem; }
   .card       { padding: var(--space-md); }
-  .stats-summary-row  { grid-template-columns: 1fr; }
+  .stats-summary-row  { grid-template-columns: repeat(3, 1fr); }
   .stats-cat-header   { flex-direction: column; align-items: flex-start; }
   .shop-content       { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
   .shop-header        { flex-direction: column; align-items: center; text-align: center; }
+}
+
+
+/* ══════════════════════════════════════════════════
+   MISSIONS TAB — in-shop list + unlock toast
+══════════════════════════════════════════════════ */
+
+/* Switch shop-content to single column for missions */
+.shop-content--missions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* Mission card: horizontal layout */
+.mission-card {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  align-items: center;
+  gap: var(--space-md);
+  background: var(--color-bg);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.mission-card:hover {
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-sm);
+}
+.mission-card--unlocked {
+  border-color: var(--color-accent-alt);
+  background: color-mix(in srgb, var(--color-accent-alt) 6%, var(--color-bg));
+}
+.mission-card--active {
+  border-color: var(--color-accent);
+  background: var(--color-highlight);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+/* Left: big emoji */
+.mission-emoji-col {
+  font-size: 2.4rem;
+  line-height: 1;
+  text-align: center;
+  filter: drop-shadow(0 2px 3px var(--shadow-accent));
+  transition: transform 0.25s ease;
+}
+.mission-card:hover .mission-emoji-col { transform: scale(1.15) rotate(-5deg); }
+.mission-emoji-col--locked {
+  filter: grayscale(1) opacity(0.4);
+}
+
+/* Body */
+.mission-body { min-width: 0; }
+.mission-name {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 2px;
+}
+.mission-desc {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-sm);
+  line-height: 1.35;
+}
+
+/* Progress bar */
+.mission-progress-wrap {
+  height: 7px;
+  background: var(--color-highlight);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+.mission-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-alt));
+  border-radius: 999px;
+  transition: width 0.6s ease;
+  min-width: 4px;
+}
+.mission-progress-label {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+.mission-unlocked-note {
+  font-size: 0.75rem;
+  color: var(--color-accent-alt);
+  font-style: italic;
+  font-weight: 600;
+}
+
+/* Action column */
+.mission-action { flex-shrink: 0; }
+
+/* ── Unlock toast notification ──
+   Slides in from bottom-right, auto-dismiss after 4s */
+.mission-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  background: var(--color-surface);
+  border: 2px solid var(--color-accent-alt);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-md) var(--space-lg) var(--space-md) var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  max-width: 300px;
+  pointer-events: none;
+
+  /* start hidden below screen */
+  transform: translateY(120%);
+  opacity: 0;
+  transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease;
+}
+.mission-toast--visible {
+  transform: translateY(0);
+  opacity: 1;
+}
+.mission-toast-emoji {
+  font-size: 2.5rem;
+  line-height: 1;
+  flex-shrink: 0;
+  animation: avatarBounce 0.6s ease;
+}
+.mission-toast-body {}
+.mission-toast-title {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  color: var(--color-accent-alt);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
+}
+.mission-toast-name {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--color-text);
+  font-weight: 700;
+}
+.mission-toast-hint {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
 }

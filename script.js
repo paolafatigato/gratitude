@@ -6,16 +6,17 @@
    3.  SETTINGS SYSTEM
    4.  STORAGE (entries)
    5.  DATE UTILS
-   6.  STREAK & POINTS
+   6.  STREAK & POINTS  ← new formula
    7.  AUTO-SAVE
    8.  RENDER UI
    9.  PHOTO UPLOAD
    10. CALENDAR
    11. STATISTICS MODAL
    12. SHOP SYSTEM
-   13. PROFILE MODAL      ← new
-   14. EVENT LISTENERS
-   15. INIT
+   13. MISSIONS SYSTEM  ← new
+   14. PROFILE MODAL
+   15. EVENT LISTENERS
+   16. INIT
    ================================================ */
 
 
@@ -55,9 +56,11 @@ const googleProvider = new GoogleAuthProvider();
    ╚══════════════════════════════╝ */
 
 const CONFIG = {
-  MIN_ENTRIES:       3,
-  POINTS_PER_DAY:    10,
-  AUTOSAVE_DELAY_MS: 1400,
+  MIN_ENTRIES:              3,
+  POINTS_PER_ENTRY:         1,   // ⭐ per filled entry text
+  STREAK_BONUS_THRESHOLD:   10,  // days before bonus kicks in
+  STREAK_BONUS_PER_DAY:     10,  // extra ⭐ per day above threshold
+  AUTOSAVE_DELAY_MS:        1400,
 
   DEFAULT_CATEGORIES: [
     { label: 'School',     emoji: '📚', order: 1, active: true },
@@ -102,7 +105,8 @@ function getActiveCategories() {
 }
 function updateCategoryDropdowns() {
   const opts = ['<option value="">No category</option>',
-    ...getActiveCategories().map(c => `<option value="${c.label}">${c.emoji} ${c.label}</option>`)
+    ...getActiveCategories().map(c =>
+      `<option value="${c.label}">${c.emoji} ${c.label}</option>`)
   ].join('');
   document.querySelectorAll('.entry-category').forEach(sel => {
     const prev = sel.value; sel.innerHTML = opts;
@@ -209,28 +213,64 @@ function addDays(date, n) { const d=new Date(date); d.setDate(d.getDate()+n); re
 function todayKey() { return dateToKey(new Date()); }
 
 
-/* ╔══════════════════════════════╗
-   ║  6. STREAK & POINTS          ║
-   ╚══════════════════════════════╝ */
+/* ╔══════════════════════════════════════════════════╗
+   ║  6. STREAK & POINTS                              ║
+   ╚══════════════════════════════════════════════════╝
+
+   NEW FORMULA
+   ───────────────────────────────────────────────────
+   • +1 ⭐ per filled entry text (any day, any number)
+   • +10 ⭐ per completed day whose running streak > 10
+     (e.g. day 11 gives +10, day 12 gives +10, etc.)
+
+   This makes long streaks very rewarding while still
+   rewarding every single word you write.
+*/
 
 function calcStats() {
-  const all = loadAllData();
-  const completed = Object.keys(all).filter(k => all[k]?.completed).sort();
-  if (!completed.length) return { current:0, best:0, earned:0 };
-  const earned = completed.length * CONFIG.POINTS_PER_DAY;
-  let best=1, temp=1;
-  for (let i=1; i<completed.length; i++) {
-    const diff = Math.round((keyToDate(completed[i]) - keyToDate(completed[i-1])) / 86_400_000);
-    if (diff===1) { temp++; if (temp>best) best=temp; } else temp=1;
+  const all          = loadAllData();
+  const completedDays = Object.keys(all).filter(k => all[k]?.completed).sort();
+
+  if (!completedDays.length) return { current:0, best:0, earned:0, entryStars:0, streakBonus:0 };
+
+  /* ── Running streak per day ── */
+  const runningStreak = [1];
+  for (let i=1; i<completedDays.length; i++) {
+    const diff = Math.round((keyToDate(completedDays[i]) - keyToDate(completedDays[i-1])) / 86_400_000);
+    runningStreak.push(diff===1 ? runningStreak[i-1]+1 : 1);
   }
-  const last = completed[completed.length-1];
-  const current = (last===todayKey() || last===dateToKey(addDays(new Date(),-1))) ? temp : 0;
-  return { current, best, earned };
+
+  const best = Math.max(...runningStreak);
+  const last = completedDays[completedDays.length-1];
+  const isActive = last===todayKey() || last===dateToKey(addDays(new Date(),-1));
+  const current  = isActive ? runningStreak[runningStreak.length-1] : 0;
+
+  /* ── Entry stars: 1 per filled text across all days ── */
+  let entryStars = 0;
+  Object.values(all).forEach(day => {
+    entryStars += (day.gratitudes||[]).filter(g => g.text?.trim()).length;
+  });
+
+  /* ── Streak bonus: +10 per day where running streak > 10 ── */
+  const streakBonus = runningStreak
+    .filter(s => s > CONFIG.STREAK_BONUS_THRESHOLD).length * CONFIG.STREAK_BONUS_PER_DAY;
+
+  return { current, best, earned: entryStars + streakBonus, entryStars, streakBonus };
 }
 
+/** Points available to spend = earned − spent so far in shop */
 function getAvailablePoints() {
   const { earned } = calcStats();
   return Math.max(0, earned - getShopState().spent);
+}
+
+/** Calculate how many ⭐ this save is worth (for autosave status bar) */
+function calcDayPoints(gratitudes) {
+  const filled = gratitudes.filter(g => g.text.trim()).length;
+  const { current } = calcStats(); // current streak (before this save)
+  // Check if today is already contributing to the streak
+  const streakBonus = current > CONFIG.STREAK_BONUS_THRESHOLD ? CONFIG.STREAK_BONUS_PER_DAY : 0;
+  return { filled, streakBonus };
 }
 
 function updateStatsUI() {
@@ -261,14 +301,18 @@ async function performSave() {
   setAutosaveStatus('saving', 'Saving…');
   try {
     await saveDay(dateKey, { gratitudes, happiness, completed, savedAt: new Date().toISOString() });
-    setAutosaveStatus('saved', completed
-      ? '✓ Saved · streak active 🔥'
-      : `✓ Saved · ${validCount}/${CONFIG.MIN_ENTRIES} for streak`);
+    // Build informative status message
+    const { streakBonus } = calcDayPoints(gratitudes);
+    let msg = completed ? '✓ Saved · streak active 🔥' : `✓ Saved · ${validCount}/${CONFIG.MIN_ENTRIES} for streak`;
+    if (completed && streakBonus > 0) msg += ` · +${streakBonus} bonus ⭐`;
+    setAutosaveStatus('saved', msg);
   } catch(e) {
     setAutosaveStatus('error', '⚠ Save failed — check connection');
   }
   updateStatsUI();
   renderCalendar();
+  // Check missions after every save
+  checkAndUnlockMissions();
   setTimeout(() => { const b=document.getElementById('autosave-bar'); if(b) b.textContent=''; }, 3000);
 }
 
@@ -416,7 +460,6 @@ async function handlePhotoSelected(entryEl, file) {
     }
   } catch(err) {
     ind.textContent='⚠ Photo failed.'; setTimeout(()=>ind.remove(),4000);
-    console.error('Photo error:', err);
   }
 }
 
@@ -473,13 +516,16 @@ function toggleCalendar(forceOpen) {
 function openStatsModal() { renderStatsModal('all'); document.getElementById('statsModal').style.display='flex'; }
 
 function renderStatsModal(catRange='all') {
-  const all=loadAllData(); const { current, best, earned }=calcStats();
+  const all=loadAllData(); const { current, best, earned, entryStars, streakBonus }=calcStats();
   const available=getAvailablePoints();
   const summaryRow=document.getElementById('stats-summary-row');
   summaryRow.innerHTML='';
-  [{ icon:'⭐', value:available, label:'Points Available' },
-   { icon:'🔥', value:current,   label:'Current Streak'  },
-   { icon:'🏆', value:best,      label:'Best Streak'     }
+  [
+    { icon:'⭐', value:available,    label:'Points Available' },
+    { icon:'🔥', value:current,      label:'Current Streak'  },
+    { icon:'🏆', value:best,         label:'Best Streak'     },
+    { icon:'✍️',  value:entryStars,   label:'Entry Stars'     },
+    { icon:'💥', value:streakBonus,  label:'Streak Bonuses'  },
   ].forEach(({ icon,value,label }) => {
     summaryRow.innerHTML+=`<div class="stats-card"><div class="stats-card-icon">${icon}</div><div class="stats-card-value">${value}</div><div class="stats-card-label">${label}</div></div>`;
   });
@@ -551,89 +597,85 @@ function getHappinessByMonth(all,monthKeys) {
    ║  12. SHOP SYSTEM                                 ║
    ╚══════════════════════════════════════════════════╝ */
 
-/* ── CATALOG ──
-   Each theme includes --color-accent-dark and --focus-ring
-   so ALL interactive element colors change with the theme. */
-
 const SHOP_CATALOG = {
 
   themes: [
     {
       id: 'theme_journal', name: 'Warm Cream', desc: 'The cozy default', cost: 0,
       swatches: ['#faf6f0','#c2714f','#8fad88'],
-      vars: {} // default — app-overrides stays empty → style.css :root values apply
+      vars: {}
     },
     {
       id: 'theme_forest', name: 'Forest', desc: 'Deep greens & moss', cost: 30,
       swatches: ['#f0f4ee','#3a7d44','#7db87f'],
       vars: {
-        '--color-bg':'#f0f4ee',       '--color-surface':'#f8fbf6',
-        '--color-border':'#c5d9c0',   '--color-accent':'#3a7d44',
-        '--color-accent-dark':'#2b5e33', '--color-accent-alt':'#7db87f',
-        '--color-text':'#1e3320',     '--color-text-muted':'#6a8f6e',
+        '--color-bg':'#f0f4ee','--color-surface':'#f8fbf6',
+        '--color-border':'#c5d9c0','--color-accent':'#3a7d44',
+        '--color-accent-dark':'#2b5e33','--color-accent-alt':'#7db87f',
+        '--color-text':'#1e3320','--color-text-muted':'#6a8f6e',
         '--color-highlight':'#daecd8',
-        '--focus-ring':'rgba(58,125,68,0.20)', '--shadow-accent':'rgba(58,125,68,0.30)',
+        '--focus-ring':'rgba(58,125,68,0.20)','--shadow-accent':'rgba(58,125,68,0.30)',
       }
     },
     {
       id: 'theme_ocean', name: 'Ocean', desc: 'Deep blue & teal', cost: 30,
       swatches: ['#eef4f8','#2c7da0','#52b2cf'],
       vars: {
-        '--color-bg':'#eef4f8',       '--color-surface':'#f5f9fc',
-        '--color-border':'#b8d4e4',   '--color-accent':'#2c7da0',
-        '--color-accent-dark':'#1d5f7c', '--color-accent-alt':'#52b2cf',
-        '--color-text':'#132635',     '--color-text-muted':'#5a8aa4',
+        '--color-bg':'#eef4f8','--color-surface':'#f5f9fc',
+        '--color-border':'#b8d4e4','--color-accent':'#2c7da0',
+        '--color-accent-dark':'#1d5f7c','--color-accent-alt':'#52b2cf',
+        '--color-text':'#132635','--color-text-muted':'#5a8aa4',
         '--color-highlight':'#d4e8f2',
-        '--focus-ring':'rgba(44,125,160,0.20)', '--shadow-accent':'rgba(44,125,160,0.30)',
+        '--focus-ring':'rgba(44,125,160,0.20)','--shadow-accent':'rgba(44,125,160,0.30)',
       }
     },
     {
       id: 'theme_lavender', name: 'Lavender', desc: 'Soft purples & lilac', cost: 30,
       swatches: ['#f4f0fb','#7c5cbf','#b89fe0'],
       vars: {
-        '--color-bg':'#f4f0fb',       '--color-surface':'#faf8fe',
-        '--color-border':'#d5c8f0',   '--color-accent':'#7c5cbf',
-        '--color-accent-dark':'#5e3fa0', '--color-accent-alt':'#b89fe0',
-        '--color-text':'#2a1f40',     '--color-text-muted':'#8a76b0',
+        '--color-bg':'#f4f0fb','--color-surface':'#faf8fe',
+        '--color-border':'#d5c8f0','--color-accent':'#7c5cbf',
+        '--color-accent-dark':'#5e3fa0','--color-accent-alt':'#b89fe0',
+        '--color-text':'#2a1f40','--color-text-muted':'#8a76b0',
         '--color-highlight':'#ece5f8',
-        '--focus-ring':'rgba(124,92,191,0.20)', '--shadow-accent':'rgba(124,92,191,0.30)',
+        '--focus-ring':'rgba(124,92,191,0.20)','--shadow-accent':'rgba(124,92,191,0.30)',
       }
     },
     {
       id: 'theme_rose', name: 'Rosé', desc: 'Blush & warm pinks', cost: 40,
       swatches: ['#fdf0f2','#c25c7a','#e8a0b2'],
       vars: {
-        '--color-bg':'#fdf0f2',       '--color-surface':'#fff6f8',
-        '--color-border':'#f0c8d4',   '--color-accent':'#c25c7a',
-        '--color-accent-dark':'#9e3d5a', '--color-accent-alt':'#e8a0b2',
-        '--color-text':'#3a1824',     '--color-text-muted':'#a06878',
+        '--color-bg':'#fdf0f2','--color-surface':'#fff6f8',
+        '--color-border':'#f0c8d4','--color-accent':'#c25c7a',
+        '--color-accent-dark':'#9e3d5a','--color-accent-alt':'#e8a0b2',
+        '--color-text':'#3a1824','--color-text-muted':'#a06878',
         '--color-highlight':'#fbe0e8',
-        '--focus-ring':'rgba(194,92,122,0.20)', '--shadow-accent':'rgba(194,92,122,0.30)',
+        '--focus-ring':'rgba(194,92,122,0.20)','--shadow-accent':'rgba(194,92,122,0.30)',
       }
     },
     {
       id: 'theme_sunset', name: 'Sunset', desc: 'Golden hour vibes', cost: 40,
       swatches: ['#fdf5e8','#c47c2b','#e8b46a'],
       vars: {
-        '--color-bg':'#fdf5e8',       '--color-surface':'#fffbf2',
-        '--color-border':'#f0d8a8',   '--color-accent':'#c47c2b',
-        '--color-accent-dark':'#9e5f18', '--color-accent-alt':'#e8b46a',
-        '--color-text':'#3a2808',     '--color-text-muted':'#a08040',
+        '--color-bg':'#fdf5e8','--color-surface':'#fffbf2',
+        '--color-border':'#f0d8a8','--color-accent':'#c47c2b',
+        '--color-accent-dark':'#9e5f18','--color-accent-alt':'#e8b46a',
+        '--color-text':'#3a2808','--color-text-muted':'#a08040',
         '--color-highlight':'#faefd0',
-        '--focus-ring':'rgba(196,124,43,0.20)', '--shadow-accent':'rgba(196,124,43,0.30)',
+        '--focus-ring':'rgba(196,124,43,0.20)','--shadow-accent':'rgba(196,124,43,0.30)',
       }
     },
     {
       id: 'theme_dark', name: 'Night Mode', desc: 'Dark & elegant', cost: 50,
       swatches: ['#1a1612','#c2714f','#8fad88'],
       vars: {
-        '--color-bg':'#1a1612',       '--color-surface':'#231e19',
-        '--color-border':'#3d3028',   '--color-accent':'#c2714f',
-        '--color-accent-dark':'#a05038', '--color-accent-alt':'#8fad88',
-        '--color-text':'#f0e8dc',     '--color-text-muted':'#8a7060',
+        '--color-bg':'#1a1612','--color-surface':'#231e19',
+        '--color-border':'#3d3028','--color-accent':'#c2714f',
+        '--color-accent-dark':'#a05038','--color-accent-alt':'#8fad88',
+        '--color-text':'#f0e8dc','--color-text-muted':'#8a7060',
         '--color-highlight':'#2e241e',
-        '--focus-ring':'rgba(194,113,79,0.25)', '--shadow-accent':'rgba(194,113,79,0.35)',
-        '--shadow-base':'rgba(0,0,0,0.25)', '--shadow-base-md':'rgba(0,0,0,0.35)', '--shadow-base-lg':'rgba(0,0,0,0.45)',
+        '--focus-ring':'rgba(194,113,79,0.25)','--shadow-accent':'rgba(194,113,79,0.35)',
+        '--shadow-base':'rgba(0,0,0,0.25)','--shadow-base-md':'rgba(0,0,0,0.35)','--shadow-base-lg':'rgba(0,0,0,0.45)',
       }
     },
   ],
@@ -661,22 +703,20 @@ const SHOP_CATALOG = {
     },
   ],
 
+  /* Shop avatars (bought with ⭐) */
   avatars: [
-    /* Free default — the "personcina" */
-    { id:'av_person',    emoji:'👤', name:'Me',         desc:'The default you',  cost:0  },
-    /* Purchasable */
-    { id:'av_sprout',    emoji:'🌱', name:'Sprout',     desc:'First steps',      cost:10 },
-    { id:'av_sun',       emoji:'☀️',  name:'Sunshine',   desc:'Bright days',      cost:20 },
-    { id:'av_moon',      emoji:'🌙', name:'Moonchild',  desc:'Quiet & reflective',cost:20 },
-    { id:'av_star',      emoji:'⭐', name:'Stardust',   desc:'You shine!',        cost:20 },
-    { id:'av_butterfly', emoji:'🦋', name:'Butterfly',  desc:'Growth & change',   cost:20 },
-    { id:'av_cat',       emoji:'🐱', name:'Kitty',      desc:'Cozy & curious',    cost:30 },
-    { id:'av_fox',       emoji:'🦊', name:'Fox',        desc:'Clever & warm',     cost:30 },
-    { id:'av_owl',       emoji:'🦉', name:'Owl',        desc:'Wise & patient',    cost:30 },
-    { id:'av_bear',      emoji:'🐻', name:'Bear',       desc:'Gentle & strong',   cost:30 },
-    { id:'av_dragon',    emoji:'🐉', name:'Dragon',     desc:'Legendary power',   cost:50 },
-    { id:'av_unicorn',   emoji:'🦄', name:'Unicorn',    desc:'Pure magic',        cost:50 },
-    { id:'av_phoenix',   emoji:'🦅', name:'Phoenix',    desc:'Rise every day',    cost:50 },
+    { id:'av_person',    emoji:'👤', name:'Me',        desc:'The default you',  cost:0  },
+    { id:'av_sprout',    emoji:'🌱', name:'Sprout',    desc:'First steps',      cost:10 },
+    { id:'av_sun',       emoji:'☀️',  name:'Sunshine',  desc:'Bright days',      cost:20 },
+    { id:'av_moon',      emoji:'🌙', name:'Moonchild', desc:'Quiet nights',     cost:20 },
+    { id:'av_butterfly', emoji:'🦋', name:'Butterfly', desc:'Growth & change',  cost:30 },
+    { id:'av_cat',       emoji:'🐱', name:'Kitty',     desc:'Cozy & curious',   cost:30 },
+    { id:'av_fox',       emoji:'🦊', name:'Fox',       desc:'Clever & warm',    cost:30 },
+    { id:'av_owl',       emoji:'🦉', name:'Owl',       desc:'Wise & patient',   cost:30 },
+    { id:'av_bear',      emoji:'🐻', name:'Bear',      desc:'Gentle & strong',  cost:40 },
+    { id:'av_dragon',    emoji:'🐉', name:'Dragon',    desc:'Legendary power',  cost:50 },
+    { id:'av_unicorn',   emoji:'🦄', name:'Unicorn',   desc:'Pure magic',       cost:50 },
+    { id:'av_phoenix',   emoji:'🦅', name:'Phoenix',   desc:'Rise every day',   cost:50 },
   ],
 };
 
@@ -684,9 +724,10 @@ const SHOP_CATALOG = {
 
 function getDefaultShopState() {
   return {
-    owned:  ['theme_journal','font_journal','av_person'],
-    active: { theme:'theme_journal', font:'font_journal', avatar:'av_person' },
-    spent:  0,
+    owned:             ['theme_journal','font_journal','av_person'],
+    active:            { theme:'theme_journal', font:'font_journal', avatar:'av_person' },
+    spent:             0,
+    unlockedMissions:  [],
   };
 }
 
@@ -694,12 +735,12 @@ function getShopState() {
   try {
     const raw = localStorage.getItem(CONFIG.SHOP_STORAGE_KEY);
     if (!raw) return getDefaultShopState();
-    const saved = JSON.parse(raw);
+    const saved  = JSON.parse(raw);
     const merged = { ...getDefaultShopState(), ...saved };
-    // Always own the free items
     ['theme_journal','font_journal','av_person'].forEach(id => {
       if (!merged.owned.includes(id)) merged.owned.push(id);
     });
+    if (!merged.unlockedMissions) merged.unlockedMissions = [];
     return merged;
   } catch(e) { return getDefaultShopState(); }
 }
@@ -717,42 +758,42 @@ async function syncShopFromFirestore() {
   try {
     const snap = await getDoc(doc(db,'users',auth.currentUser.uid,'shop','state'));
     if (snap.exists()) {
-      const cloud = snap.data();
+      const cloud  = snap.data();
       const merged = { ...getDefaultShopState(), ...cloud };
       ['theme_journal','font_journal','av_person'].forEach(id => {
         if (!merged.owned.includes(id)) merged.owned.push(id);
       });
+      if (!merged.unlockedMissions) merged.unlockedMissions = [];
       localStorage.setItem(CONFIG.SHOP_STORAGE_KEY, JSON.stringify(merged));
     }
   } catch(e) { console.warn('Shop cloud sync failed:', e.message); }
 }
 
-/* ── APPLY ACTIVE ITEMS ──
-   Injects CSS variable overrides into #app-overrides (which lives
-   AFTER style.css in <head>) and updates every avatar display. */
+/* ── APPLY ACTIVE ITEMS ── */
+
+function getAvatarEmoji(id) {
+  const shopAv    = SHOP_CATALOG.avatars.find(a => a.id===id);
+  if (shopAv) return shopAv.emoji;
+  const missionAv = MISSIONS.find(m => m.id===id);
+  if (missionAv) return missionAv.emoji;
+  return '👤';
+}
 
 function applyActiveItems() {
   const { active } = getShopState();
-  const theme  = SHOP_CATALOG.themes.find(t => t.id===active.theme)  || SHOP_CATALOG.themes[0];
-  const font   = SHOP_CATALOG.fonts.find(f  => f.id===active.font)   || SHOP_CATALOG.fonts[0];
-  const avatar = SHOP_CATALOG.avatars.find(a => a.id===active.avatar) || SHOP_CATALOG.avatars[0];
+  const theme = SHOP_CATALOG.themes.find(t => t.id===active.theme) || SHOP_CATALOG.themes[0];
+  const font  = SHOP_CATALOG.fonts.find(f  => f.id===active.font)  || SHOP_CATALOG.fonts[0];
 
-  // Merge theme + font vars and inject into :root override
-  const vars = { ...theme.vars, ...font.vars };
+  const vars    = { ...theme.vars, ...font.vars };
   const entries = Object.entries(vars);
-  const cssText = entries.length
+  document.getElementById('app-overrides').textContent = entries.length
     ? `:root {\n${entries.map(([k,v]) => `  ${k}: ${v};`).join('\n')}\n}`
     : '';
-  document.getElementById('app-overrides').textContent = cssText;
 
-  // Update every place the avatar is shown
-  refreshAvatarDisplays(avatar.emoji);
-}
-
-/** Update all avatar display elements on the page. */
-function refreshAvatarDisplays(emoji) {
-  const ids = ['header-avatar-emoji','shop-avatar-big','profile-avatar-display'];
-  ids.forEach(id => { const el=document.getElementById(id); if(el) el.textContent=emoji; });
+  const emoji = getAvatarEmoji(active.avatar);
+  ['header-avatar-emoji','shop-avatar-big','profile-avatar-display'].forEach(id => {
+    const el=document.getElementById(id); if(el) el.textContent=emoji;
+  });
 }
 
 /* ── BUY / EQUIP ── */
@@ -761,8 +802,7 @@ function buyItem(itemId) {
   const shopState = getShopState();
   if (shopState.owned.includes(itemId)) return false;
   const item = findItemById(itemId);
-  if (!item) return false;
-  if (getAvailablePoints() < item.cost) return false;
+  if (!item || getAvailablePoints() < item.cost) return false;
   shopState.owned.push(itemId);
   shopState.spent += item.cost;
   saveShopState(shopState);
@@ -772,6 +812,15 @@ function buyItem(itemId) {
 
 function equipItem(itemId) {
   const shopState = getShopState();
+  // Mission avatar?
+  if (MISSIONS.some(m => m.id===itemId)) {
+    if (!shopState.unlockedMissions.includes(itemId)) return;
+    shopState.active.avatar = itemId;
+    saveShopState(shopState);
+    applyActiveItems();
+    return;
+  }
+  // Regular shop item
   if (!shopState.owned.includes(itemId)) return;
   const item = findItemById(itemId);
   if (!item) return;
@@ -789,7 +838,7 @@ function findItemById(id) {
   return null;
 }
 
-/* ── SHOP MODAL ── */
+/* ── SHOP MODAL RENDER ── */
 
 let _shopActiveTab = 'themes';
 
@@ -809,16 +858,65 @@ function renderShopTab(tab) {
   if(pd) pd.textContent=available;
   if(ed) ed.textContent=earned;
 
-  const bigAv = SHOP_CATALOG.avatars.find(a => a.id===shopState.active.avatar);
+  const bigAv = getAvatarEmoji(shopState.active.avatar);
   const bigEl = document.getElementById('shop-avatar-big');
-  if(bigEl && bigAv) bigEl.textContent=bigAv.emoji;
+  if(bigEl) bigEl.textContent=bigAv;
 
   document.querySelectorAll('.shop-tab').forEach(btn => btn.classList.toggle('active',btn.dataset.tab===tab));
 
   const content=document.getElementById('shop-content');
   content.innerHTML='';
-  const items=SHOP_CATALOG[tab];
-  const singular=tab.replace(/s$/,'');
+
+  /* ── MISSIONS TAB (special rendering) ── */
+  if (tab==='missions') {
+    content.className='shop-content shop-content--missions';
+    const all    = loadAllData();
+    const stats  = calcStats();
+    MISSIONS.forEach(mission => {
+      const unlocked = shopState.unlockedMissions.includes(mission.id);
+      const active   = shopState.active.avatar === mission.id;
+      const current  = Math.min(mission.target, mission.progress(all, stats));
+      const pct      = Math.round((current / mission.target) * 100);
+
+      const card = document.createElement('div');
+      card.className = `mission-card${active?' mission-card--active':unlocked?' mission-card--unlocked':''}`;
+
+      // Action
+      let actionHTML = '';
+      if (active)        actionHTML = `<div class="shop-badge-active">✓ Equipped</div>`;
+      else if (unlocked) actionHTML = `<button class="shop-btn shop-btn--equip" data-action="equip" data-id="${mission.id}">Equip</button>`;
+
+      card.innerHTML = `
+        <div class="mission-emoji-col${unlocked ? '' : ' mission-emoji-col--locked'}">
+          ${unlocked ? mission.emoji : '🔒'}
+        </div>
+        <div class="mission-body">
+          <div class="mission-name">${mission.name}</div>
+          <div class="mission-desc">${mission.desc}</div>
+          ${unlocked
+            ? `<div class="mission-unlocked-note">✓ Avatar unlocked — equip it!</div>`
+            : `<div class="mission-progress-wrap">
+                 <div class="mission-progress-fill" style="width:${pct}%"></div>
+               </div>
+               <div class="mission-progress-label">${current} / ${mission.target}</div>`
+          }
+        </div>
+        <div class="mission-action">${actionHTML}</div>
+      `;
+
+      card.querySelector('[data-action]')?.addEventListener('click', () => {
+        equipItem(mission.id);
+        renderShopTab('missions');
+      });
+      content.appendChild(card);
+    });
+    return;
+  }
+
+  /* ── REGULAR TABS (themes / fonts / avatars) ── */
+  content.className='shop-content'; // reset to grid
+  const items    = SHOP_CATALOG[tab];
+  const singular = tab.replace(/s$/,'');
 
   items.forEach(item => {
     const owned     = shopState.owned.includes(item.id);
@@ -840,13 +938,12 @@ function renderShopTab(tab) {
 
     const costLabel = item.cost===0 ? 'Free' : `${item.cost} ⭐`;
     let actionHTML='';
-    if (active)       actionHTML=`<div class="shop-badge-active">✓ Equipped</div>`;
-    else if (owned)   actionHTML=`<button class="shop-btn shop-btn--equip" data-action="equip" data-id="${item.id}">Equip</button>`;
+    if (active)         actionHTML=`<div class="shop-badge-active">✓ Equipped</div>`;
+    else if (owned)     actionHTML=`<button class="shop-btn shop-btn--equip" data-action="equip" data-id="${item.id}">Equip</button>`;
     else if (canAfford) actionHTML=`<button class="shop-btn shop-btn--buy" data-action="buy" data-id="${item.id}">Buy · ${costLabel}</button>`;
-    else              actionHTML=`<button class="shop-btn shop-btn--locked" disabled>Need ${item.cost} ⭐</button>`;
+    else                actionHTML=`<button class="shop-btn shop-btn--locked" disabled>Need ${item.cost} ⭐</button>`;
 
     card.innerHTML=`${previewHTML}<div class="shop-card-name">${item.name}</div><div class="shop-card-sub">${item.desc}</div>${actionHTML}`;
-
     card.querySelector('[data-action]')?.addEventListener('click', e => {
       const { action, id } = e.currentTarget.dataset;
       if (action==='buy') {
@@ -855,30 +952,253 @@ function renderShopTab(tab) {
         equipItem(id); renderShopTab(_shopActiveTab);
       }
     });
-
     content.appendChild(card);
   });
 }
 
 
 /* ╔══════════════════════════════════════════════════╗
-   ║  13. PROFILE MODAL                               ║
+   ║  13. MISSIONS SYSTEM                             ║
    ╚══════════════════════════════════════════════════╝
-   Opened by clicking the avatar button in the header.
-   Shows: big avatar, editable display name, email,
-   logout / login button, shortcut to shop.
+
+   MISSIONS unlock special avatar emoji — they cannot be
+   bought with ⭐, only earned through specific behaviours.
+
+   Each mission:
+   ─────────────────────────────────────────────────────
+   id        unique string, used as avatar ID when equipped
+   emoji     the avatar emoji awarded
+   name      short title
+   desc      displayed in the missions tab
+   target    numeric threshold (how many times / days)
+   progress  (all, stats) → number  (current progress)
 */
+
+/* Helper: count entries using a category identified by its emoji character */
+function catCountByEmoji(all, targetEmoji) {
+  // Normalise: remove variation selectors for comparison
+  const norm = e => e.replace(/\uFE0F|\u200D/g,'');
+  const matchingLabels = settings.categories
+    .filter(c => norm(c.emoji).startsWith(norm(targetEmoji)))
+    .map(c => c.label);
+  let count = 0;
+  Object.values(all).forEach(day => {
+    (day.gratitudes||[]).forEach(g => { if(matchingLabels.includes(g.category)) count++; });
+  });
+  return count;
+}
+
+const MISSIONS = [
+
+  /* ── MOOD MISSIONS ── */
+  {
+    id: 'mis_sad',
+    emoji: '😢', name: 'Cloudy Day',
+    desc: 'Log a sadness score of 3 or below on the mood slider',
+    target: 1,
+    progress: (all) => Object.values(all).filter(d => d.happiness != null && d.happiness <= 3).length,
+  },
+  {
+    id: 'mis_ecstatic',
+    emoji: '🤩', name: 'Pure Joy',
+    desc: 'Log a perfect happiness score of 10',
+    target: 1,
+    progress: (all) => Object.values(all).filter(d => d.happiness >= 10).length,
+  },
+  {
+    id: 'mis_sunshine',
+    emoji: '🌈', name: 'Sunshine Streak',
+    desc: 'Log happiness of 8 or above on 5 different days',
+    target: 5,
+    progress: (all) => Object.values(all).filter(d => d.happiness >= 8).length,
+  },
+  {
+    id: 'mis_resilient',
+    emoji: '🛡️', name: 'Resilient',
+    desc: 'Log sadness (≤ 3) but still complete all 3 gratitude entries that day',
+    target: 1,
+    progress: (all) => Object.values(all)
+      .filter(d => d.happiness <= 3 && d.completed).length,
+  },
+
+  /* ── CATEGORY MISSIONS ── */
+  {
+    id: 'mis_love',
+    emoji: '🥰', name: 'Lovebird',
+    desc: 'Use the Love ❤️ category 5 times',
+    target: 5,
+    progress: (all) => catCountByEmoji(all, '❤'),
+  },
+  {
+    id: 'mis_nerd',
+    emoji: '🤓', name: 'Scholar',
+    desc: 'Use the School 📚 category 5 times',
+    target: 5,
+    progress: (all) => catCountByEmoji(all, '📚'),
+  },
+  {
+    id: 'mis_athlete',
+    emoji: '💪', name: 'Athlete',
+    desc: 'Use the Sport ⚽ category 5 times',
+    target: 5,
+    progress: (all) => catCountByEmoji(all, '⚽'),
+  },
+  {
+    id: 'mis_family',
+    emoji: '🏠', name: 'Family First',
+    desc: 'Use the Family 🏡 category 5 times',
+    target: 5,
+    progress: (all) => catCountByEmoji(all, '🏡'),
+  },
+  {
+    id: 'mis_bestfriend',
+    emoji: '🫂', name: 'Best Friends',
+    desc: 'Use the Friendship 🤝 category 5 times',
+    target: 5,
+    progress: (all) => catCountByEmoji(all, '🤝'),
+  },
+  {
+    id: 'mis_wellness',
+    emoji: '🌿', name: 'Wellness',
+    desc: 'Use the Health 🌱 category 5 times',
+    target: 5,
+    progress: (all) => catCountByEmoji(all, '🌱'),
+  },
+  {
+    id: 'mis_hustle',
+    emoji: '🧑‍💻', name: 'Hustle',
+    desc: 'Use the Work 💼 category 5 times',
+    target: 5,
+    progress: (all) => catCountByEmoji(all, '💼'),
+  },
+
+  /* ── HABIT MISSIONS ── */
+  {
+    id: 'mis_photographer',
+    emoji: '📸', name: 'Photographer',
+    desc: 'Add a photo to any gratitude entry',
+    target: 1,
+    progress: (all) => Object.values(all).some(d => d.gratitudes?.some(g => g.photoUrl)) ? 1 : 0,
+  },
+  {
+    id: 'mis_journal50',
+    emoji: '✍️', name: 'Journaler',
+    desc: 'Write 50 gratitude entries in total',
+    target: 50,
+    progress: (all) => Object.values(all).reduce((s,d) => s + (d.gratitudes||[]).filter(g => g.text?.trim()).length, 0),
+  },
+  {
+    id: 'mis_abundant',
+    emoji: '🌻', name: 'Abundant',
+    desc: 'Write 5 or more entries on a single day',
+    target: 1,
+    progress: (all) => Object.values(all).some(d => (d.gratitudes||[]).filter(g => g.text?.trim()).length >= 5) ? 1 : 0,
+  },
+  {
+    id: 'mis_explorer',
+    emoji: '🗺️', name: 'Explorer',
+    desc: 'Use 4 different categories in a single day',
+    target: 1,
+    progress: (all) => Object.values(all).some(d => {
+      const cats = new Set((d.gratitudes||[]).map(g => g.category).filter(Boolean));
+      return cats.size >= 4;
+    }) ? 1 : 0,
+  },
+
+  /* ── STREAK / COMPLETION MISSIONS ── */
+  {
+    id: 'mis_week',
+    emoji: '🗓️', name: 'First Week',
+    desc: 'Complete 7 consecutive days',
+    target: 7,
+    progress: (_all, stats) => Math.min(stats?.best||0, 7),
+  },
+  {
+    id: 'mis_onfire',
+    emoji: '🔥', name: 'On Fire',
+    desc: 'Reach a 10-day streak',
+    target: 10,
+    progress: (_all, stats) => Math.min(stats?.best||0, 10),
+  },
+  {
+    id: 'mis_champion',
+    emoji: '🏆', name: 'Champion',
+    desc: 'Complete 30 total days',
+    target: 30,
+    progress: (all) => Object.keys(all).filter(k => all[k]?.completed).length,
+  },
+  {
+    id: 'mis_legend',
+    emoji: '⚡', name: 'Legend',
+    desc: 'Reach a 30-day streak',
+    target: 30,
+    progress: (_all, stats) => Math.min(stats?.best||0, 30),
+  },
+];
+
+/**
+ * Run after every save + on init.
+ * Checks all missions; unlocks any that are now complete.
+ * Shows an animated toast for each new unlock.
+ */
+function checkAndUnlockMissions() {
+  const all       = loadAllData();
+  const stats     = calcStats();
+  const shopState = getShopState();
+  let changed     = false;
+
+  MISSIONS.forEach(mission => {
+    if (shopState.unlockedMissions.includes(mission.id)) return; // already done
+    const current = mission.progress(all, stats);
+    if (current >= mission.target) {
+      shopState.unlockedMissions.push(mission.id);
+      changed = true;
+      showMissionUnlockedToast(mission);
+    }
+  });
+
+  if (changed) {
+    saveShopState(shopState);
+    // Live-update missions tab if it's open
+    if (document.getElementById('shopModal').style.display !== 'none' && _shopActiveTab==='missions') {
+      renderShopTab('missions');
+    }
+  }
+}
+
+/** Bottom-right toast that slides up and auto-dismisses */
+function showMissionUnlockedToast(mission) {
+  const toast = document.createElement('div');
+  toast.className='mission-toast';
+  toast.innerHTML=`
+    <span class="mission-toast-emoji">${mission.emoji}</span>
+    <div class="mission-toast-body">
+      <div class="mission-toast-title">Mission unlocked!</div>
+      <div class="mission-toast-name">${mission.name}</div>
+      <div class="mission-toast-hint">New avatar available in Shop → Missions</div>
+    </div>
+  `;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add('mission-toast--visible')));
+  setTimeout(() => {
+    toast.classList.remove('mission-toast--visible');
+    setTimeout(() => toast.remove(), 450);
+  }, 4500);
+}
+
+
+/* ╔══════════════════════════════╗
+   ║  14. PROFILE MODAL           ║
+   ╚══════════════════════════════╝ */
 
 const PROFILE_KEY = CONFIG.PROFILE_STORAGE_KEY;
 
-/** Load display name from localStorage (fallback: Firebase displayName or empty). */
 function getDisplayName() {
   const local = localStorage.getItem(PROFILE_KEY);
   if (local) return local;
   return auth.currentUser?.displayName || '';
 }
 
-/** Persist display name locally and to Firebase Auth + Firestore. */
 async function saveDisplayName(name) {
   localStorage.setItem(PROFILE_KEY, name);
   if (auth.currentUser) {
@@ -891,45 +1211,27 @@ async function saveDisplayName(name) {
 
 function openProfileModal() {
   const shopState = getShopState();
-  const avatar    = SHOP_CATALOG.avatars.find(a => a.id===shopState.active.avatar) || SHOP_CATALOG.avatars[0];
+  const emoji     = getAvatarEmoji(shopState.active.avatar);
   const user      = auth.currentUser;
   const name      = getDisplayName();
-
-  // Big avatar
   const bigEl=document.getElementById('profile-avatar-display');
-  if(bigEl) { bigEl.textContent=avatar.emoji; }
-
-  // Name input
+  if(bigEl) bigEl.textContent=emoji;
   const nameInput=document.getElementById('profile-name-input');
-  if(nameInput) { nameInput.value=name; }
-
-  // Toast reset
+  if(nameInput) nameInput.value=name;
   const toast=document.getElementById('profile-name-saved-toast');
   if(toast) toast.textContent='';
-
-  // Email
   const emailEl=document.getElementById('profile-email');
-  if(emailEl) {
-    if (user?.email) { emailEl.textContent=user.email; emailEl.style.display='block'; }
-    else             { emailEl.style.display='none'; }
-  }
-
-  // Actions
-  const actionsIn  =document.getElementById('profile-actions-loggedin');
-  const actionsOut =document.getElementById('profile-actions-loggedout');
-  if(actionsIn)  actionsIn.style.display  = user ? 'block' : 'none';
-  if(actionsOut) actionsOut.style.display = user ? 'none'  : 'block';
-
+  if(emailEl) { emailEl.textContent=user?.email||''; emailEl.style.display=user?.email?'block':'none'; }
+  document.getElementById('profile-actions-loggedin').style.display  = user ? 'block':'none';
+  document.getElementById('profile-actions-loggedout').style.display = user ? 'none':'block';
   document.getElementById('profileModal').style.display='flex';
 }
 
-function closeProfileModal() {
-  document.getElementById('profileModal').style.display='none';
-}
+function closeProfileModal() { document.getElementById('profileModal').style.display='none'; }
 
 
 /* ╔══════════════════════════════╗
-   ║  14. EVENT LISTENERS         ║
+   ║  15. EVENT LISTENERS         ║
    ╚══════════════════════════════╝ */
 
 function initEventListeners() {
@@ -981,12 +1283,12 @@ function initEventListeners() {
   });
   document.getElementById('closeSettings').addEventListener('click', () => document.getElementById('settingsModal').style.display='none');
 
-  // Shop — points pill
+  // Shop
   document.getElementById('points-pill').addEventListener('click', () => openShopModal('themes'));
   document.getElementById('closeShop').addEventListener('click', () => document.getElementById('shopModal').style.display='none');
   document.querySelectorAll('.shop-tab').forEach(btn => btn.addEventListener('click', () => renderShopTab(btn.dataset.tab)));
 
-  // ── Avatar button → Profile modal ──
+  // Avatar → profile
   document.getElementById('avatarBtn').addEventListener('click', openProfileModal);
   document.getElementById('closeProfile').addEventListener('click', closeProfileModal);
 
@@ -994,28 +1296,22 @@ function initEventListeners() {
   const nameInput=document.getElementById('profile-name-input');
   const nameSave =document.getElementById('profile-name-save');
   const toast    =document.getElementById('profile-name-saved-toast');
-
   nameSave.addEventListener('click', async () => {
     const name=nameInput.value.trim();
     await saveDisplayName(name);
-    if(toast) { toast.textContent='✓ Name saved!'; setTimeout(()=>{ if(toast) toast.textContent=''; },2500); }
+    if(toast){ toast.textContent='✓ Name saved!'; setTimeout(()=>{ if(toast) toast.textContent=''; },2500); }
     nameSave.style.opacity='0';
   });
   nameInput.addEventListener('input', () => { if(nameSave) nameSave.style.opacity='1'; });
-  nameInput.addEventListener('keydown', e => { if(e.key==='Enter') { e.preventDefault(); nameSave.click(); } });
+  nameInput.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); nameSave.click(); } });
 
-  // Profile: logout
+  // Profile: logout / sign in
   document.getElementById('profile-logout-btn').addEventListener('click', async () => {
-    await signOut(auth);
-    closeProfileModal();
+    await signOut(auth); closeProfileModal();
   });
-
-  // Profile: sign in → open login modal
   document.getElementById('profile-signin-btn').addEventListener('click', () => {
     closeProfileModal(); showLoginModal(true);
   });
-
-  // Profile: go to shop avatars tab
   document.getElementById('profile-goto-shop').addEventListener('click', () => {
     closeProfileModal(); openShopModal('avatars');
   });
@@ -1048,7 +1344,6 @@ function initEventListeners() {
   });
 }
 
-/* ── LOGIN MODAL HELPERS ── */
 function showLoginModal(visible) {
   document.getElementById('login-modal').style.display=visible?'flex':'none';
   if (visible) {
@@ -1063,7 +1358,7 @@ function showLoginError(msg) {
 
 
 /* ╔══════════════════════════════╗
-   ║  15. INIT                    ║
+   ║  16. INIT                    ║
    ╚══════════════════════════════╝ */
 
 async function init(user) {
@@ -1074,21 +1369,18 @@ async function init(user) {
   if (user) {
     await syncAllFromFirestore();
     await syncShopFromFirestore();
-    // Try to load saved display name from Firestore
     try {
       const snap=await getDoc(doc(db,'users',user.uid,'profile','data'));
-      if (snap.exists() && snap.data().displayName) {
+      if (snap.exists()&&snap.data().displayName)
         localStorage.setItem(PROFILE_KEY, snap.data().displayName);
-      }
     } catch(e) {}
   }
 
-  // Apply theme/font/avatar immediately (before first render)
   applyActiveItems();
-
   await renderDay(dateToKey(state.currentDate));
   renderCalendar();
   updateStatsUI();
+  checkAndUnlockMissions(); // check on every startup (offline usage)
 
   const overlay=document.getElementById('loading-overlay');
   overlay.classList.add('hidden');
