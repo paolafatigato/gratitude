@@ -453,61 +453,90 @@ body {
 .logo { display: flex; align-items: center; gap: var(--space-xs); }
 .logo-icon { color: var(--color-accent); font-size: 1.3rem; }
 .logo-text { font-family: var(--font-display); font-size: 1.6rem; color: var(--color-accent); }
-.stats-bar { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
+/* ─────────────────────────────────────────────────────
+   STATS BAR — unified token for all header controls
+   Every element: height 32px, border-radius 999px,
+   border 1px solid, same vertical padding.
+───────────────────────────────────────────────────── */
+:root { --hbtn-h: 32px; } /* header button height token */
 
+.stats-bar {
+  display: flex; align-items: center;
+  gap: 6px; flex-wrap: wrap;
+}
+
+/* Base pill (non-interactive, streak) */
 .stat-pill {
-  display: flex; align-items: center; gap: 4px;
-  background: var(--color-highlight); border: 1px solid var(--color-border);
-  border-radius: 999px; padding: 4px 10px;
-  font-family: var(--font-display); cursor: default;
+  height: var(--hbtn-h);
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--color-highlight);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0 12px;
+  font-family: var(--font-display);
+  cursor: default;
+  white-space: nowrap;
   transition: background var(--transition), border-color var(--transition);
 }
-.stat-icon  { font-size: 0.9rem; }
-.stat-value { font-size: 1.1rem; font-weight: 700; color: var(--color-accent); min-width: 18px; text-align: center; }
-.stat-label { font-size: 0.7rem; color: var(--color-text-muted); display: none; }
+.stat-icon  { font-size: 0.85rem; line-height: 1; }
+.stat-value { font-size: 1rem; font-weight: 700; color: var(--color-accent); min-width: 16px; text-align: center; }
+.stat-label { font-size: 0.68rem; color: var(--color-text-muted); display: none; }
 @media (min-width: 480px) { .stat-label { display: inline; } }
 
 /* Points pill — clickable, opens shop */
 .stat-pill-btn {
-  cursor: pointer; border: 1px solid var(--color-accent);
+  cursor: pointer;
+  border-color: var(--color-accent);
   transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
 }
 .stat-pill-btn:hover {
-  background: var(--color-accent); transform: scale(1.05);
+  background: var(--color-accent);
   box-shadow: 0 2px 10px var(--shadow-accent);
 }
 .stat-pill-btn:hover .stat-value,
 .stat-pill-btn:hover .stat-label { color: #fff; }
 
+/* Generic icon button — same pill shape */
 .icon-btn {
-  background: none; border: none; cursor: pointer;
-  font-size: 1.3rem; padding: 4px 6px; border-radius: var(--radius-sm);
-  display: inline-flex; align-items: center; gap: 4px;
+  height: var(--hbtn-h);
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--color-highlight);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0 12px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-family: var(--font-body);
+  color: var(--color-text);
+  white-space: nowrap;
+  transition: background var(--transition), border-color var(--transition), transform var(--transition);
+}
+.icon-btn:hover {
+  background: var(--color-border);
+  border-color: var(--color-accent);
   color: var(--color-accent);
-  transition: transform var(--transition), background var(--transition);
 }
-.icon-btn:hover { transform: scale(1.12); background: var(--color-highlight); }
 
-.stats-btn {
-  background: var(--color-highlight); border: 1px solid var(--color-border);
-  border-radius: 999px; padding: 4px 12px;
-  font-size: 0.9rem; font-family: var(--font-body);
-}
-.stats-btn:hover { background: var(--color-border); border-color: var(--color-accent); }
+/* Stats button inherits .icon-btn — no extra rules needed */
+.stats-btn { /* intentionally empty — style comes from .icon-btn */ }
 
-/* ── Avatar button (replaces auth button) ── */
+/* Avatar button — same height, circle */
 .avatar-btn {
+  height: var(--hbtn-h);
+  width: var(--hbtn-h);
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
   background: var(--color-highlight);
   border: 2px solid var(--color-accent);
   border-radius: 50%;
-  width: 36px; height: 36px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; font-size: 1.3rem; line-height: 1;
+  cursor: pointer;
+  font-size: 1.15rem;
+  line-height: 1;
+  padding: 0;
   transition: transform var(--transition), box-shadow var(--transition), background var(--transition);
-  flex-shrink: 0;
 }
 .avatar-btn:hover {
-  transform: scale(1.12) rotate(-8deg);
+  transform: rotate(-8deg) scale(1.1);
   box-shadow: 0 0 0 3px var(--focus-ring);
   background: var(--color-surface);
 }
@@ -603,24 +632,51 @@ body {
 
 /* ── 16. GRATITUDE ENTRIES ── */
 .gratitude-list { display: flex; flex-direction: column; gap: var(--space-md); }
-.gratitude-entry { display: flex; flex-direction: column; gap: var(--space-xs); animation: slideIn 0.25s ease; }
-.entry-row { display: flex; gap: var(--space-sm); align-items: flex-start; }
+
+/*
+  Grid layout for each entry:
+  col 1 = number (fixed 28px)
+  col 2 = text / actions / photo (flexible)
+  col 3 = remove button (auto, only appears in removable entries)
+
+  .entry-row uses display:contents so its children (number, text,
+  remove-btn) participate directly in the parent grid — this guarantees
+  .entry-actions always starts at the exact same left edge as .entry-text.
+*/
+.gratitude-entry {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  column-gap: var(--space-sm);
+  row-gap: var(--space-xs);
+  animation: slideIn 0.25s ease;
+}
+/* entry-row becomes invisible as a box; its children join the grid */
+.entry-row { display: contents; }
+
 .entry-number {
   font-family: var(--font-display); font-size: 1.5rem;
-  color: var(--color-border); min-width: 28px; padding-top: 6px;
-  user-select: none; transition: color var(--transition);
+  color: var(--color-border); padding-top: 6px;
+  user-select: none; align-self: start;
+  transition: color var(--transition);
 }
 .gratitude-entry.filled .entry-number { color: var(--color-accent); }
+
 .entry-text {
-  flex: 1; background: var(--color-bg); border: 1px solid var(--color-border);
+  /* grid col 2, row 1 — width is handled by 1fr */
+  background: var(--color-bg); border: 1px solid var(--color-border);
   border-radius: var(--radius-md); color: var(--color-text);
   font-family: var(--font-body); font-size: 0.95rem; min-height: 60px;
-  padding: var(--space-sm) var(--space-md); resize: vertical;
-  transition: border-color var(--transition), box-shadow var(--transition); width: 100%;
+  padding: var(--space-sm) var(--space-md); resize: vertical; width: 100%;
+  transition: border-color var(--transition), box-shadow var(--transition);
 }
 .entry-text:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--focus-ring); outline: none; }
 .entry-text::placeholder { color: var(--color-border); font-style: italic; }
-.entry-actions { display: flex; align-items: center; gap: var(--space-sm); margin-left: 36px; flex-wrap: wrap; }
+
+/* col 2 — automatically aligned with entry-text above */
+.entry-actions {
+  grid-column: 2 / 3;
+  display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap;
+}
 .entry-category {
   background: var(--color-bg); border: 1px solid var(--color-border);
   border-radius: var(--radius-md); color: var(--color-text-muted); cursor: pointer;
@@ -636,7 +692,7 @@ body {
   transition: all var(--transition); white-space: nowrap;
 }
 .btn-photo:hover { background: var(--color-border); color: var(--color-text); border-color: var(--color-accent); }
-.photo-preview-wrap { margin-left: 36px; margin-top: 4px; position: relative; display: inline-block; }
+.photo-preview-wrap { grid-column: 2 / 3; margin-top: 4px; position: relative; display: inline-block; }
 .photo-preview { width: 80px; height: 80px; object-fit: cover; border-radius: var(--radius-md); border: 2px solid var(--color-border); display: block; }
 .btn-remove-photo {
   position: absolute; top: -6px; right: -6px;
@@ -646,7 +702,7 @@ body {
   transition: background var(--transition);
 }
 .btn-remove-photo:hover { background: var(--color-danger); }
-.photo-uploading { font-size: 0.75rem; color: var(--color-text-muted); font-style: italic; margin-left: 36px; }
+.photo-uploading { grid-column: 2 / 3; font-size: 0.75rem; color: var(--color-text-muted); font-style: italic; }
 .btn-remove { background: none; border: none; color: var(--color-border); cursor: pointer; font-size: 1.1rem; padding: var(--space-xs); flex-shrink: 0; margin-top: 8px; transition: color var(--transition); }
 .btn-remove:hover { color: var(--color-danger); }
 
@@ -654,11 +710,13 @@ body {
 /* ── 17. HAPPINESS SLIDER ── */
 .happiness-control { display: flex; align-items: center; gap: var(--space-md); }
 .happiness-emoji { font-size: 2.2rem; min-width: 48px; text-align: center; transition: transform 0.2s ease; }
-.slider-wrap { flex: 1; }
+
+.slider-wrap { flex: 1; position: relative; }
+
 .happiness-slider {
   -webkit-appearance: none; appearance: none;
   width: 100%; height: 6px; background: var(--color-border);
-  border-radius: 999px; cursor: pointer; outline: none;
+  border-radius: 999px; cursor: pointer; outline: none; display: block;
 }
 .happiness-slider::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
@@ -667,7 +725,34 @@ body {
   cursor: grab; transition: transform var(--transition);
 }
 .happiness-slider::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.2); }
-.slider-labels { display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--color-text-muted); margin-top: 4px; }
+.happiness-slider::-moz-range-thumb {
+  width: 22px; height: 22px; background: var(--color-accent);
+  border-radius: 50%; border: none; box-shadow: 0 2px 6px var(--shadow-accent);
+  cursor: grab;
+}
+
+/*
+  Labels: 1 · 5 · 10  in a range min=1 max=10 (9 intervals).
+  Browser thumb center formula: left = (value-min)/(max-min) × (trackW - thumbW) + thumbW/2
+    value 1  → 0  × (W-22) + 11 = 11px from left
+    value 5  → 4/9 × (W-22) + 11 = 44.44%W + 1.22px  (NOT the midpoint)
+    value 10 → 9/9 × (W-22) + 11 = W - 11px
+
+  We position each label with position:absolute + translateX(-50%) so label
+  centers match thumb centers exactly.
+*/
+.slider-labels {
+  position: relative;
+  height: 16px;   /* reserve space so .slider-wrap has height */
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+.slider-labels span { position: absolute; transform: translateX(-50%); }
+.slider-labels span:nth-child(1) { left: 11px; }
+.slider-labels span:nth-child(2) { left: calc(44.44% + 1.22px); }
+.slider-labels span:nth-child(3) { left: calc(100% - 11px); }
+
 .happiness-value { font-family: var(--font-display); font-size: 2rem; color: var(--color-accent); font-weight: 700; min-width: 36px; text-align: center; }
 
 
@@ -702,8 +787,6 @@ body {
   .date-full  { font-size: 1.5rem; }
   .logo-text  { font-size: 1.3rem; }
   .card       { padding: var(--space-md); }
-  .entry-actions      { margin-left: 0; }
-  .photo-preview-wrap { margin-left: 0; }
   .stats-summary-row  { grid-template-columns: 1fr; }
   .stats-cat-header   { flex-direction: column; align-items: flex-start; }
   .shop-content       { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
