@@ -709,6 +709,147 @@ const SHOP_CATALOG = {
         '--shadow-base':'rgba(0,0,0,0.25)','--shadow-base-md':'rgba(0,0,0,0.35)','--shadow-base-lg':'rgba(0,0,0,0.45)',
       }
     },
+
+    /* ── PREMIUM TIER (100 ⭐) ── */
+    {
+      id: 'theme_cottoncandy', name: 'Cotton Candy', desc: 'Soft pink & dreamy mauve', cost: 100,
+      swatches: ['#fff0f5','#FF98A9','#D7B8F1'],
+      vars: {
+        '--color-bg':'#fff0f5','--color-surface':'#fff8fb',
+        '--color-border':'#f8d0e0','--color-accent':'#FF98A9',
+        '--color-accent-dark':'#e0607a','--color-accent-alt':'#D7B8F1',
+        '--color-text':'#3a1525','--color-text-muted':'#c06890',
+        '--color-highlight':'#ffe8f2',
+        '--focus-ring':'rgba(255,152,169,0.22)','--shadow-accent':'rgba(255,152,169,0.35)',
+      }
+    },
+    {
+      id: 'theme_pearlagua', name: 'Pearl Aqua', desc: 'Tropical teal & sunshine yellow', cost: 100,
+      swatches: ['#f0fbfa','#85D5C8','#FFEE46'],
+      vars: {
+        '--color-bg':'#f0fbfa','--color-surface':'#f8fefe',
+        '--color-border':'#b8e8e4','--color-accent':'#85D5C8',
+        '--color-accent-dark':'#52b0a8','--color-accent-alt':'#FFEE46',
+        '--color-text':'#0e2e2a','--color-text-muted':'#5a9e98',
+        '--color-highlight':'#d0f0ec',
+        '--focus-ring':'rgba(133,213,200,0.22)','--shadow-accent':'rgba(133,213,200,0.35)',
+      }
+    },
+
+    /* ── PREMIUM TIER (120 ⭐) ── */
+    {
+      id: 'theme_tigerflame', name: 'Tiger Flame', desc: 'Fire orange meets electric lime', cost: 120,
+      swatches: ['#fff5f0','#FE572A','#DAFF02'],
+      vars: {
+        '--color-bg':'#fff5f0','--color-surface':'#fffaf8',
+        '--color-border':'#ffd8c8','--color-accent':'#FE572A',
+        '--color-accent-dark':'#d04010','--color-accent-alt':'#DAFF02',
+        '--color-text':'#2a0f08','--color-text-muted':'#a04030',
+        '--color-highlight':'#ffe8e0',
+        '--focus-ring':'rgba(254,87,42,0.22)','--shadow-accent':'rgba(254,87,42,0.38)',
+      }
+    },
+    {
+      id: 'theme_parchment', name: 'Slate & Parchment', desc: 'Warm parchment with deep slate', cost: 120,
+      swatches: ['#F2EFEB','#685BC7','#85D5C8'],
+      vars: {
+        '--color-bg':'#F2EFEB','--color-surface':'#F9F7F4',
+        '--color-border':'#d8d0c8','--color-accent':'#685BC7',
+        '--color-accent-dark':'#4a3fa0','--color-accent-alt':'#85D5C8',
+        '--color-text':'#201E1F','--color-text-muted':'#887a98',
+        '--color-highlight':'#e8e4f8',
+        '--focus-ring':'rgba(104,91,199,0.20)','--shadow-accent':'rgba(104,91,199,0.30)',
+      }
+    },
+
+    /* ── PREMIUM TIER (140 ⭐) ── */
+    {
+      id: 'theme_rosewood', name: 'Rosewood & Gold', desc: 'Deep rose with warm gold shimmer', cost: 140,
+      swatches: ['#fff2f4','#C03D55','#FFF088'],
+      vars: {
+        '--color-bg':'#fff2f4','--color-surface':'#fff8f9',
+        '--color-border':'#f0c0cc','--color-accent':'#C03D55',
+        '--color-accent-dark':'#962840','--color-accent-alt':'#FFF088',
+        '--color-text':'#2a0810','--color-text-muted':'#904060',
+        '--color-highlight':'#ffe0e8',
+        '--focus-ring':'rgba(192,61,85,0.20)','--shadow-accent':'rgba(192,61,85,0.32)',
+      }
+    },
+    {
+      id: 'theme_bananacream', name: 'Banana & Slate', desc: 'Electric yellow with deep purple contrast', cost: 140,
+      swatches: ['#fefce8','#685BC7','#DAFF02'],
+      vars: {
+        '--color-bg':'#fefce8','--color-surface':'#ffffef',
+        '--color-border':'#e8e090','--color-accent':'#685BC7',
+        '--color-accent-dark':'#4a3fa0','--color-accent-alt':'#DAFF02',
+        '--color-text':'#1a1640','--color-text-muted':'#706890',
+        '--color-highlight':'#f4f0a0',
+        '--focus-ring':'rgba(104,91,199,0.20)','--shadow-accent':'rgba(104,91,199,0.30)',
+      }
+    },
+
+    /* ── ULTRA TIER (160 ⭐) — gradient accent ── */
+    {
+      id: 'theme_indigobloom', name: 'Indigo Bloom', desc: 'Purple luxury with electric gradient', cost: 160,
+      swatches: ['#f5f0ff','#7A1FA2','#D5A7E7'],
+      gradient: 'linear-gradient(135deg, #7A1FA2 0%, #3548C0 100%)',
+      vars: {
+        '--color-bg':'#f5f0ff','--color-surface':'#fcf8ff',
+        '--color-border':'#d8b8f0','--color-accent':'#7A1FA2',
+        '--color-accent-dark':'#5a1480','--color-accent-alt':'#D5A7E7',
+        '--color-text':'#1e0830','--color-text-muted':'#8060a8',
+        '--color-highlight':'#eed8f8',
+        '--focus-ring':'rgba(122,31,162,0.22)','--shadow-accent':'rgba(122,31,162,0.35)',
+        '--accent-gradient':'linear-gradient(135deg, #7A1FA2 0%, #3548C0 100%)',
+      }
+    },
+    {
+      id: 'theme_vibrantcoral', name: 'Vibrant Coral', desc: 'Dark stage with coral fire gradient', cost: 160,
+      swatches: ['#201E1F','#FE6F61','#FF98A9'],
+      gradient: 'linear-gradient(135deg, #FE572A 0%, #FE6F61 60%, #FF98A9 100%)',
+      vars: {
+        '--color-bg':'#201E1F','--color-surface':'#2c2829',
+        '--color-border':'#403840','--color-accent':'#FE6F61',
+        '--color-accent-dark':'#d04832','--color-accent-alt':'#FF98A9',
+        '--color-text':'#f5ece0','--color-text-muted':'#a08078',
+        '--color-highlight':'#382830',
+        '--focus-ring':'rgba(254,111,97,0.25)','--shadow-accent':'rgba(254,111,97,0.40)',
+        '--shadow-base':'rgba(0,0,0,0.25)','--shadow-base-md':'rgba(0,0,0,0.35)','--shadow-base-lg':'rgba(0,0,0,0.50)',
+        '--accent-gradient':'linear-gradient(135deg, #FE572A 0%, #FE6F61 60%, #FF98A9 100%)',
+      }
+    },
+
+    /* ── ULTRA TIER (200 ⭐) — maximum gradient ── */
+    {
+      id: 'theme_shadownoir', name: 'Shadow Noir', desc: 'Carbon black with neon coral & lime explosion', cost: 200,
+      swatches: ['#1A1A1A','#FE6F61','#DAFF02'],
+      gradient: 'linear-gradient(135deg, #FE572A 0%, #FE6F61 45%, #DAFF02 100%)',
+      vars: {
+        '--color-bg':'#1A1A1A','--color-surface':'#201E1F',
+        '--color-border':'#343030','--color-accent':'#FE6F61',
+        '--color-accent-dark':'#d04030','--color-accent-alt':'#DAFF02',
+        '--color-text':'#f0ece0','--color-text-muted':'#807870',
+        '--color-highlight':'#2a2424',
+        '--focus-ring':'rgba(254,111,97,0.28)','--shadow-accent':'rgba(254,111,97,0.45)',
+        '--shadow-base':'rgba(0,0,0,0.30)','--shadow-base-md':'rgba(0,0,0,0.45)','--shadow-base-lg':'rgba(0,0,0,0.60)',
+        '--accent-gradient':'linear-gradient(135deg, #FE572A 0%, #FE6F61 45%, #DAFF02 100%)',
+      }
+    },
+    {
+      id: 'theme_neonspace', name: 'Neon Space', desc: 'Deep space indigo with neon-pink to ocean-twilight warp', cost: 200,
+      swatches: ['#252851','#FF017E','#A1BEF8'],
+      gradient: 'linear-gradient(135deg, #FF017E 0%, #3548C0 55%, #A1BEF8 100%)',
+      vars: {
+        '--color-bg':'#0e1030','--color-surface':'#252851',
+        '--color-border':'#3548C0','--color-accent':'#FF017E',
+        '--color-accent-dark':'#c00060','--color-accent-alt':'#A1BEF8',
+        '--color-text':'#f0f4ff','--color-text-muted':'#8090c8',
+        '--color-highlight':'#1a2060',
+        '--focus-ring':'rgba(255,1,126,0.28)','--shadow-accent':'rgba(255,1,126,0.45)',
+        '--shadow-base':'rgba(0,0,0,0.30)','--shadow-base-md':'rgba(0,0,0,0.45)','--shadow-base-lg':'rgba(0,0,0,0.65)',
+        '--accent-gradient':'linear-gradient(135deg, #FF017E 0%, #3548C0 55%, #A1BEF8 100%)',
+      }
+    },
   ],
 
   fonts: [
@@ -1000,8 +1141,14 @@ function renderShopTab(tab) {
 
     let previewHTML = '';
     if (tab==='themes') {
-      const sw = item.swatches.map(c=>`<span class="theme-swatch" style="background:${c}"></span>`).join('');
-      previewHTML = `<div class="shop-preview--theme">${sw}</div>`;
+      const solidSwatches = item.swatches.slice(0,3)
+        .map(c=>`<span class="theme-swatch" style="background:${c}"></span>`).join('');
+      const gradientStrip = item.gradient
+        ? `<span class="theme-swatch-gradient" style="background:${item.gradient}"></span>` : '';
+      previewHTML = `<div class="shop-preview--theme">
+        <div class="theme-swatch-row">${solidSwatches}</div>
+        ${gradientStrip}
+      </div>`;
     } else if (tab==='fonts') {
       previewHTML = `<div class="shop-preview--font" style="${item.previewStyle}">${item.preview}</div>`;
     } else {
@@ -1015,11 +1162,16 @@ function renderShopTab(tab) {
     else if (canAfford) actionHTML = `<button class="shop-btn shop-btn--buy" data-action="buy" data-id="${item.id}">Buy · ${costLabel}</button>`;
     else                actionHTML = `<button class="shop-btn shop-btn--locked" disabled>Need ${item.cost} ⭐</button>`;
 
-    // Badge for mission rewards
     const missionTag = item._fromMission
       ? `<div class="shop-card-mission-tag">🎯 Mission</div>` : '';
+    // Tier badge for premium themes
+    const tierBadge = item.cost >= 200
+      ? `<span class="shop-card-tier shop-card-tier--ultra">✦ Ultra</span>`
+      : item.cost >= 100
+        ? `<span class="shop-card-tier shop-card-tier--premium">⭐ Premium</span>`
+        : '';
 
-    card.innerHTML = `${previewHTML}<div class="shop-card-name">${item.name}</div>${missionTag}<div class="shop-card-sub">${item.desc}</div>${actionHTML}`;
+    card.innerHTML = `${tierBadge}${previewHTML}<div class="shop-card-name">${item.name}</div>${missionTag}<div class="shop-card-sub">${item.desc}</div>${actionHTML}`;
     card.querySelector('[data-action]')?.addEventListener('click', e => {
       const { action, id } = e.currentTarget.dataset;
       if (action==='buy') {
