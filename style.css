@@ -31,6 +31,11 @@
   --shadow-base-md:     rgba(58,46,40,0.12);
   --shadow-base-lg:     rgba(58,46,40,0.18);
 
+  /* Gradient accent — defaults to solid accent.
+     Premium themes override this with a linear-gradient.
+     Used on: primary buttons, slider thumb, selected day, chart bar */
+  --accent-gradient:    var(--color-accent);
+
   /* Typography */
   --font-display: 'Caveat', cursive;
   --font-body:    'Lora', Georgia, serif;
@@ -144,12 +149,12 @@ body {
 .login-input::placeholder { color: var(--color-border); }
 .login-error { color: var(--color-danger); font-size: 0.85rem; text-align: left; }
 .btn-login {
-  background: var(--color-accent); border: none; border-radius: var(--radius-md);
+  background: var(--accent-gradient, var(--color-accent)); border: none; border-radius: var(--radius-md);
   color: #fff; cursor: pointer; font-family: var(--font-display); font-size: 1.1rem;
   padding: var(--space-sm) var(--space-md);
-  transition: background var(--transition), transform var(--transition);
+  transition: filter var(--transition), transform var(--transition);
 }
-.btn-login:hover { background: var(--color-accent-dark); transform: translateY(-1px); }
+.btn-login:hover { filter: brightness(1.12); transform: translateY(-1px); }
 .btn-signup {
   background: none; border: 1px solid var(--color-border); border-radius: var(--radius-md);
   color: var(--color-text-muted); cursor: pointer;
@@ -188,8 +193,8 @@ body {
 }
 .cat-del-btn { background: var(--color-highlight); color: var(--color-danger); }
 .cat-del-btn:hover { background: color-mix(in srgb, var(--color-danger) 15%, white); transform: scale(1.05); }
-.cat-add-btn { background: var(--color-accent); color: #fff; padding: var(--space-xs) var(--space-md); width: 100%; margin-top: var(--space-xs); }
-.cat-add-btn:hover { background: var(--color-accent-dark); }
+.cat-add-btn { background: var(--accent-gradient, var(--color-accent)); color: #fff; padding: var(--space-xs) var(--space-md); width: 100%; margin-top: var(--space-xs); }
+.cat-add-btn:hover { filter: brightness(1.1); }
 
 
 /* ── 7. STATISTICS MODAL ── */
@@ -214,7 +219,7 @@ body {
 .chart-row { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); }
 .chart-label { font-size: 0.8rem; color: var(--color-text-muted); min-width: 76px; white-space: nowrap; text-align: right; font-family: var(--font-display); }
 .chart-bar-wrap { flex: 1; background: var(--color-highlight); border-radius: 999px; height: 12px; overflow: hidden; }
-.chart-bar { height: 100%; border-radius: 999px; background: var(--color-accent); transition: width 0.5s ease; min-width: 4px; }
+.chart-bar { height: 100%; border-radius: 999px; background: var(--accent-gradient, var(--color-accent)); transition: width 0.5s ease; min-width: 4px; }
 .chart-bar.happiness-bar { background: linear-gradient(90deg, var(--color-accent), var(--color-accent-alt)); }
 .chart-count { font-family: var(--font-display); font-size: 0.95rem; color: var(--color-accent); min-width: 28px; }
 .stats-empty { color: var(--color-text-muted); font-style: italic; font-size: 0.9rem; padding: var(--space-md) 0; }
@@ -290,14 +295,33 @@ body {
 }
 .shop-card--locked { opacity: 0.6; }
 
-.shop-preview--theme { display: flex; gap: 6px; justify-content: center; align-items: center; height: 48px; }
+.shop-preview--theme { display: flex; gap: 6px; justify-content: center; align-items: center; height: 48px; flex-direction: column; }
+/* Row of solid swatches */
+.theme-swatch-row { display: flex; gap: 6px; align-items: center; }
 .theme-swatch {
   width: 26px; height: 26px; border-radius: 50%;
   border: 2px solid rgba(255,255,255,0.6);
   box-shadow: 0 1px 4px rgba(0,0,0,0.15); display: inline-block;
-  transition: transform var(--transition);
+  transition: transform var(--transition); flex-shrink: 0;
 }
 .shop-card:hover .theme-swatch { transform: scale(1.1); }
+/* Gradient strip swatch — shown below the circles for premium themes */
+.theme-swatch-gradient {
+  width: 100%; height: 8px; border-radius: 999px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+  transition: transform var(--transition);
+}
+.shop-card:hover .theme-swatch-gradient { transform: scaleX(1.04); }
+/* Cost tier label on card (⭐ 100+) */
+.shop-card-tier {
+  position: absolute; top: 6px; right: 6px;
+  font-size: 0.6rem; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; border-radius: 999px;
+  padding: 2px 7px; pointer-events: none;
+}
+.shop-card { position: relative; }
+.shop-card-tier--premium  { background: #FFF088; color: #3a2800; }
+.shop-card-tier--ultra    { background: linear-gradient(90deg,#FF017E,#3548C0); color: #fff; }
 .shop-preview--font { height: 56px; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; color: var(--color-text); line-height: 1; }
 .shop-preview--avatar { font-size: 3rem; height: 56px; display: flex; align-items: center; justify-content: center; transition: transform 0.25s ease; }
 .shop-card:hover .shop-preview--avatar { transform: scale(1.15) rotate(-5deg); }
@@ -311,10 +335,10 @@ body {
   transition: all var(--transition); font-weight: 500;
 }
 .shop-btn--buy {
-  background: var(--color-accent); color: #fff;
+  background: var(--accent-gradient, var(--color-accent)); color: #fff;
   box-shadow: 0 2px 8px var(--shadow-accent);
 }
-.shop-btn--buy:hover { background: var(--color-accent-dark); transform: scale(1.03); }
+.shop-btn--buy:hover { filter: brightness(1.1); transform: scale(1.03); }
 .shop-btn--equip { background: var(--color-highlight); color: var(--color-accent); border: 1.5px solid var(--color-accent); }
 .shop-btn--equip:hover { background: var(--color-accent); color: #fff; }
 .shop-btn--locked { background: var(--color-highlight); color: var(--color-text-muted); border: 1px dashed var(--color-border); cursor: not-allowed; font-size: 0.72rem; }
@@ -489,7 +513,7 @@ body {
   transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
 }
 .stat-pill-btn:hover {
-  background: var(--color-accent);
+  background: var(--accent-gradient, var(--color-accent));
   box-shadow: 0 2px 10px var(--shadow-accent);
 }
 .stat-pill-btn:hover .stat-value,
@@ -607,7 +631,7 @@ body {
 .cal-day:hover    { background: var(--color-highlight); transform: scale(1.1); }
 .cal-day.empty    { cursor: default; }
 .cal-day.today    { font-weight: 700; color: var(--color-accent); }
-.cal-day.selected { background: var(--color-accent); color: #fff; border-radius: 50%; }
+.cal-day.selected { background: var(--accent-gradient, var(--color-accent)); color: #fff; border-radius: 50%; }
 .cal-day.completed { position: relative; }
 .cal-day.completed::after {
   content: ''; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
@@ -719,13 +743,13 @@ body {
 }
 .happiness-slider::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
-  width: 22px; height: 22px; background: var(--color-accent);
+  width: 22px; height: 22px; background: var(--accent-gradient, var(--color-accent));
   border-radius: 50%; box-shadow: 0 2px 6px var(--shadow-accent);
   cursor: grab; transition: transform var(--transition);
 }
 .happiness-slider::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.2); }
 .happiness-slider::-moz-range-thumb {
-  width: 22px; height: 22px; background: var(--color-accent);
+  width: 22px; height: 22px; background: var(--accent-gradient, var(--color-accent));
   border-radius: 50%; border: none; box-shadow: 0 2px 6px var(--shadow-accent);
   cursor: grab;
 }
