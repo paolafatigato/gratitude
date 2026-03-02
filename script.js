@@ -62,6 +62,12 @@ const CONFIG = {
   STREAK_BONUS_PER_DAY:     10,  // extra ⭐ per day above threshold
   AUTOSAVE_DELAY_MS:        1400,
 
+  // Funzione per ottenere la chiave localStorage specifica per utente
+  getUserStorageKey: (baseKey) => {
+    const user = auth?.currentUser;
+    return user ? `${baseKey}_${user.uid}` : baseKey;
+  },
+
   DEFAULT_CATEGORIES: [
     { label: 'School',     emoji: '📚', order: 1, active: true },
     { label: 'Love',       emoji: '❤️',  order: 2, active: true },
@@ -94,10 +100,10 @@ const state = { currentDate: new Date() };
 let settings = { categories: [...CONFIG.DEFAULT_CATEGORIES] };
 
 function saveSettings() {
-  localStorage.setItem(CONFIG.SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  localStorage.setItem(CONFIG.getUserStorageKey(CONFIG.SETTINGS_STORAGE_KEY), JSON.stringify(settings));
 }
 function loadSettings() {
-  const s = localStorage.getItem(CONFIG.SETTINGS_STORAGE_KEY);
+  const s = localStorage.getItem(CONFIG.getUserStorageKey(CONFIG.SETTINGS_STORAGE_KEY));
   if (s) { try { settings = JSON.parse(s); } catch(e) {} }
 }
 function getActiveCategories() {
@@ -155,11 +161,15 @@ function renderSettingsUI() {
    ╚══════════════════════════════╝ */
 
 function loadAllData() {
-  try { const r=localStorage.getItem(CONFIG.STORAGE_KEY); return r ? JSON.parse(r) : {}; }
-  catch(e) { return {}; }
+  try {
+    const r = localStorage.getItem(CONFIG.getUserStorageKey(CONFIG.STORAGE_KEY));
+    return r ? JSON.parse(r) : {};
+  } catch(e) { return {}; }
 }
 function saveAllData(data) {
-  try { localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+  try {
+    localStorage.setItem(CONFIG.getUserStorageKey(CONFIG.STORAGE_KEY), JSON.stringify(data));
+  } catch(e) {}
 }
 async function loadDay(dateKey) {
   if (auth.currentUser) {
@@ -231,7 +241,16 @@ function calcStats() {
   const all          = loadAllData();
   const completedDays = Object.keys(all).filter(k => all[k]?.completed).sort();
 
-  if (!completedDays.length) return { current:0, best:0, earned:0, entryStars:0, streakBonus:0 };
+  /* ── Entry stars: 1 per filled text across ALL days ──
+     Counted first, independently of streak — so even day 1
+     with a single entry already gives 1 ⭐. */
+  let entryStars = 0;
+  Object.values(all).forEach(day => {
+    entryStars += (day.gratitudes||[]).filter(g => g.text?.trim()).length;
+  });
+
+  /* No completed days yet — return entry stars already earned */
+  if (!completedDays.length) return { current:0, best:0, earned:entryStars, entryStars, streakBonus:0 };
 
   /* ── Running streak per day ── */
   const runningStreak = [1];
@@ -244,12 +263,6 @@ function calcStats() {
   const last = completedDays[completedDays.length-1];
   const isActive = last===todayKey() || last===dateToKey(addDays(new Date(),-1));
   const current  = isActive ? runningStreak[runningStreak.length-1] : 0;
-
-  /* ── Entry stars: 1 per filled text across all days ── */
-  let entryStars = 0;
-  Object.values(all).forEach(day => {
-    entryStars += (day.gratitudes||[]).filter(g => g.text?.trim()).length;
-  });
 
   /* ── Streak bonus: +10 per day where running streak > 10 ── */
   const streakBonus = runningStreak
@@ -276,7 +289,65 @@ function calcDayPoints(gratitudes) {
 function updateStatsUI() {
   const { current } = calcStats();
   document.getElementById('streak-current').textContent = current;
-  document.getElementById('points-total').textContent   = getAvailablePoints();
+  // For points: count DOM entries live (no save needed)
+  _updatePointsDisplay();
+}
+
+/**
+ * Compute available points without waiting for autosave.
+ *
+ * Strategy:
+ *   entryStars = (filled textareas visible NOW) + (saved entries on OTHER days)
+ *
+ * This means the number updates the instant you type the first character,
+ * and drops the instant you clear a field — no localStorage roundtrip needed.
+ */
+function _updatePointsDisplay() {
+  // 1. Count filled entries currently visible in the DOM (= today)
+  const allTextareas = [...document.querySelectorAll('.entry-text')];
+  const domFilled = allTextareas.filter(el => el.value.trim().length > 0).length;
+
+  console.log('[⭐ points] textareas found:', allTextareas.length, '| filled:', domFilled);
+
+  // 2. Count saved entries on every OTHER day from localStorage
+  const todayKey = dateToKey(state.currentDate);
+  console.log('[⭐ points] todayKey:', todayKey, '| state.currentDate:', state.currentDate);
+
+  const all = loadAllData();
+  console.log('[⭐ points] all keys in localStorage:', Object.keys(all));
+
+  let savedOtherDays = 0;
+  Object.entries(all).forEach(([key, day]) => {
+    if (key === todayKey) return;
+    const count = (day.gratitudes || []).filter(g => g.text?.trim()).length;
+    savedOtherDays += count;
+  });
+  console.log('[⭐ points] savedOtherDays:', savedOtherDays);
+
+  // 3. Streak bonus
+  const completedDays = Object.keys(all).filter(k => all[k]?.completed).sort();
+  let streakBonus = 0;
+  if (completedDays.length > 1) {
+    const runningStreak = [1];
+    for (let i = 1; i < completedDays.length; i++) {
+      const diff = Math.round(
+        (keyToDate(completedDays[i]) - keyToDate(completedDays[i - 1])) / 86_400_000
+      );
+      runningStreak.push(diff === 1 ? runningStreak[i - 1] + 1 : 1);
+    }
+    streakBonus = runningStreak
+      .filter(s => s > CONFIG.STREAK_BONUS_THRESHOLD).length * CONFIG.STREAK_BONUS_PER_DAY;
+  }
+
+  const spent     = getShopState().spent || 0;
+  const earned    = domFilled + savedOtherDays + streakBonus;
+  const available = Math.max(0, earned - spent);
+
+  console.log('[⭐ points] earned:', earned, '| spent:', spent, '| available:', available);
+
+  const el = document.getElementById('points-total');
+  console.log('[⭐ points] points-total element:', el, '| current text:', el?.textContent);
+  if (el) el.textContent = available;
 }
 
 
@@ -311,6 +382,7 @@ async function performSave() {
   }
   updateStatsUI();
   renderCalendar();
+  _updatePointsDisplay();          // re-sync after save (streak bonus may have changed)
   // Check missions after every save
   checkAndUnlockMissions();
   setTimeout(() => { const b=document.getElementById('autosave-bar'); if(b) b.textContent=''; }, 3000);
@@ -360,11 +432,17 @@ function createEntryElement(index, removable=false, data=null) {
   if (data?.text?.trim()) div.classList.add('filled');
   const textarea = div.querySelector('.entry-text');
   textarea.addEventListener('input', () => {
+    console.log('[⭐ input] textarea fired, value length:', textarea.value.length);
     div.classList.toggle('filled', textarea.value.trim().length > 0);
+    _updatePointsDisplay();
     triggerAutoSave(false);
   });
   textarea.addEventListener('blur', () => triggerAutoSave(true));
-  div.querySelector('.btn-remove')?.addEventListener('click', () => { div.remove(); renumberEntries(); triggerAutoSave(true); });
+  div.querySelector('.btn-remove')?.addEventListener('click', () => {
+    div.remove(); renumberEntries();
+    _updatePointsDisplay();        // drop star immediately when entry deleted
+    triggerAutoSave(true);
+  });
   div.querySelector('.entry-category').addEventListener('change', () => triggerAutoSave(true));
   div.querySelector('.btn-photo').addEventListener('click', () => div.querySelector('.photo-file-input').click());
   div.querySelector('.photo-file-input').addEventListener('change', e => {
@@ -905,7 +983,7 @@ function getDefaultShopState() {
 
 function getShopState() {
   try {
-    const raw = localStorage.getItem(CONFIG.SHOP_STORAGE_KEY);
+    const raw = localStorage.getItem(CONFIG.getUserStorageKey(CONFIG.SHOP_STORAGE_KEY));
     if (!raw) return getDefaultShopState();
     const saved  = JSON.parse(raw);
     const merged = { ...getDefaultShopState(), ...saved };
@@ -918,7 +996,7 @@ function getShopState() {
 }
 
 function saveShopState(shopState) {
-  localStorage.setItem(CONFIG.SHOP_STORAGE_KEY, JSON.stringify(shopState));
+  localStorage.setItem(CONFIG.getUserStorageKey(CONFIG.SHOP_STORAGE_KEY), JSON.stringify(shopState));
   if (auth.currentUser) {
     setDoc(doc(db,'users',auth.currentUser.uid,'shop','state'), shopState)
       .catch(e => console.warn('Shop sync failed:', e.message));
@@ -1424,13 +1502,13 @@ function showMissionUnlockedToast(mission) {
 const PROFILE_KEY = CONFIG.PROFILE_STORAGE_KEY;
 
 function getDisplayName() {
-  const local = localStorage.getItem(PROFILE_KEY);
+  const local = localStorage.getItem(CONFIG.getUserStorageKey(PROFILE_KEY));
   if (local) return local;
   return auth.currentUser?.displayName || '';
 }
 
 async function saveDisplayName(name) {
-  localStorage.setItem(PROFILE_KEY, name);
+  localStorage.setItem(CONFIG.getUserStorageKey(PROFILE_KEY), name);
   if (auth.currentUser) {
     try {
       await updateProfile(auth.currentUser, { displayName: name });
@@ -1602,7 +1680,7 @@ async function init(user) {
     try {
       const snap=await getDoc(doc(db,'users',user.uid,'profile','data'));
       if (snap.exists()&&snap.data().displayName)
-        localStorage.setItem(PROFILE_KEY, snap.data().displayName);
+        localStorage.setItem(CONFIG.getUserStorageKey(PROFILE_KEY), snap.data().displayName);
     } catch(e) {}
   }
 
