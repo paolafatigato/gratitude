@@ -101,6 +101,10 @@ let settings = { categories: [...CONFIG.DEFAULT_CATEGORIES] };
 
 function saveSettings() {
   localStorage.setItem(CONFIG.getUserStorageKey(CONFIG.SETTINGS_STORAGE_KEY), JSON.stringify(settings));
+  if (auth.currentUser) {
+    setDoc(doc(db,'users',auth.currentUser.uid,'settings','data'), settings, { merge: true })
+      .catch(e => console.warn('Settings sync failed:', e.message));
+  }
 }
 function loadSettings() {
   const s = localStorage.getItem(CONFIG.getUserStorageKey(CONFIG.SETTINGS_STORAGE_KEY));
@@ -132,16 +136,16 @@ function renderSettingsUI() {
     row.className = 'settings-cat-row' + (cat.active ? '' : ' cat-inactive');
     const emojiIn = document.createElement('input');
     emojiIn.type='text'; emojiIn.value=cat.emoji; emojiIn.className='cat-emoji-input'; emojiIn.maxLength=2;
-    emojiIn.oninput = () => { cat.emoji=emojiIn.value; saveSettings(); updateCategoryDropdowns(); };
+    emojiIn.oninput = () => { cat.emoji=emojiIn.value; saveSettings(); updateCategoryDropdowns(); renderStatsModal('all'); };
     const labelIn = document.createElement('input');
     labelIn.type='text'; labelIn.value=cat.label; labelIn.className='cat-label-input';
-    labelIn.oninput = () => { cat.label=labelIn.value; saveSettings(); updateCategoryDropdowns(); };
+    labelIn.oninput = () => { cat.label=labelIn.value; saveSettings(); updateCategoryDropdowns(); renderStatsModal('all'); };
     const toggle = document.createElement('input');
     toggle.type='checkbox'; toggle.checked=cat.active; toggle.className='cat-active-toggle';
-    toggle.onchange = () => { cat.active=toggle.checked; saveSettings(); updateCategoryDropdowns(); renderSettingsUI(); };
+    toggle.onchange = () => { cat.active=toggle.checked; saveSettings(); updateCategoryDropdowns(); renderSettingsUI(); renderStatsModal('all'); };
     const delBtn = document.createElement('button');
     delBtn.className='cat-del-btn'; delBtn.textContent='✕';
-    delBtn.onclick = () => { settings.categories.splice(idx,1); saveSettings(); updateCategoryDropdowns(); renderSettingsUI(); };
+    delBtn.onclick = () => { settings.categories.splice(idx,1); saveSettings(); updateCategoryDropdowns(); renderSettingsUI(); renderStatsModal('all'); };
     row.append(emojiIn, labelIn, toggle, delBtn);
     list.appendChild(row);
   });
@@ -149,7 +153,7 @@ function renderSettingsUI() {
   addBtn.className='cat-add-btn'; addBtn.textContent='+ Add category';
   addBtn.onclick = () => {
     settings.categories.push({ label:'', emoji:'✦', order: settings.categories.length+1, active:true });
-    saveSettings(); renderSettingsUI(); updateCategoryDropdowns();
+    saveSettings(); renderSettingsUI(); updateCategoryDropdowns(); renderStatsModal('all');
   };
   section.append(list, addBtn);
   container.appendChild(section);
@@ -193,7 +197,7 @@ async function syncAllFromFirestore() {
   if (!auth.currentUser) return;
   try {
     const snapshot = await getDocs(collection(db,'users',auth.currentUser.uid,'entries'));
-    const all = loadAllData();
+    const all = {};
     snapshot.forEach(d => { all[d.id]=d.data(); });
     saveAllData(all);
   } catch(e) { console.warn('Sync failed:', e.message); }
@@ -223,9 +227,9 @@ function addDays(date, n) { const d=new Date(date); d.setDate(d.getDate()+n); re
 function todayKey() { return dateToKey(new Date()); }
 
 
-/* ╔══════════════════════════════════════════════════╗
+/* ╔══════════════════════════════╗
    ║  6. STREAK & POINTS                              ║
-   ╚══════════════════════════════════════════════════╝
+   ╚══════════════════════════════╗
 
    NEW FORMULA
    ───────────────────────────────────────────────────
@@ -384,7 +388,7 @@ async function performSave() {
   renderCalendar();
   _updatePointsDisplay();          // re-sync after save (streak bonus may have changed)
   // Check missions after every save
-  checkAndUnlockMissions();
+  await checkAndUnlockMissions();
   setTimeout(() => { const b=document.getElementById('autosave-bar'); if(b) b.textContent=''; }, 3000);
 }
 
@@ -702,9 +706,9 @@ function getHappinessByMonth(all,monthKeys) {
 }
 
 
-/* ╔══════════════════════════════════════════════════╗
+/* ╔══════════════════════════════╗
    ║  12. SHOP SYSTEM                                 ║
-   ╚══════════════════════════════════════════════════╝ */
+   ╚══════════════════════════════╝ */
 
 const SHOP_CATALOG = {
 
@@ -995,10 +999,10 @@ function getShopState() {
   } catch(e) { return getDefaultShopState(); }
 }
 
-function saveShopState(shopState) {
+async function saveShopState(shopState) {
   localStorage.setItem(CONFIG.getUserStorageKey(CONFIG.SHOP_STORAGE_KEY), JSON.stringify(shopState));
   if (auth.currentUser) {
-    setDoc(doc(db,'users',auth.currentUser.uid,'shop','state'), shopState)
+    await setDoc(doc(db,'users',auth.currentUser.uid,'shop','state'), shopState)
       .catch(e => console.warn('Shop sync failed:', e.message));
   }
 }
@@ -1014,9 +1018,37 @@ async function syncShopFromFirestore() {
         if (!merged.owned.includes(id)) merged.owned.push(id);
       });
       if (!merged.unlockedMissions) merged.unlockedMissions = [];
-      localStorage.setItem(CONFIG.SHOP_STORAGE_KEY, JSON.stringify(merged));
+      localStorage.setItem(CONFIG.getUserStorageKey(CONFIG.SHOP_STORAGE_KEY), JSON.stringify(merged));
+      // Aggiorna la UI dopo la sync
+      applyActiveItems();
+      updateStatsUI();
+      if (typeof renderShopTab === 'function') renderShopTab(_shopActiveTab);
     }
   } catch(e) { console.warn('Shop cloud sync failed:', e.message); }
+}
+
+// Sincronizza le impostazioni da Firestore
+async function syncSettingsFromFirestore() {
+  if (!auth.currentUser) return;
+  try {
+    const snap = await getDoc(doc(db,'users',auth.currentUser.uid,'settings','data'));
+    if (snap.exists()) {
+      const cloud = snap.data();
+      localStorage.setItem(CONFIG.getUserStorageKey(CONFIG.SETTINGS_STORAGE_KEY), JSON.stringify(cloud));
+      settings = cloud;
+    }
+  } catch(e) { console.warn('Settings cloud sync failed:', e.message); }
+}
+
+// Sincronizza il profilo da Firestore
+async function syncProfileFromFirestore() {
+  if (!auth.currentUser) return;
+  try {
+    const snap = await getDoc(doc(db,'users',auth.currentUser.uid,'profile','data'));
+    if (snap.exists() && snap.data().displayName) {
+      localStorage.setItem(CONFIG.getUserStorageKey(PROFILE_KEY), snap.data().displayName);
+    }
+  } catch(e) { console.warn('Profile cloud sync failed:', e.message); }
 }
 
 /* ── APPLY ACTIVE ITEMS ── */
@@ -1048,25 +1080,27 @@ function applyActiveItems() {
 
 /* ── BUY / EQUIP ── */
 
-function buyItem(itemId) {
+async function buyItem(itemId) {
   const shopState = getShopState();
   if (shopState.owned.includes(itemId)) return false;
   const item = findItemById(itemId);
   if (!item || getAvailablePoints() < item.cost) return false;
   shopState.owned.push(itemId);
   shopState.spent += item.cost;
-  saveShopState(shopState);
+  await saveShopState(shopState);
+  await syncShopFromFirestore();
   updateStatsUI();
   return true;
 }
 
-function equipItem(itemId) {
+async function equipItem(itemId) {
   const shopState = getShopState();
   // Mission avatar?
   if (MISSIONS.some(m => m.id===itemId)) {
     if (!shopState.unlockedMissions.includes(itemId)) return;
     shopState.active.avatar = itemId;
-    saveShopState(shopState);
+    await saveShopState(shopState);
+    await syncShopFromFirestore();
     applyActiveItems();
     return;
   }
@@ -1075,7 +1109,8 @@ function equipItem(itemId) {
   const item = findItemById(itemId);
   if (!item) return;
   shopState.active[item._type] = itemId;
-  saveShopState(shopState);
+  await saveShopState(shopState);
+  await syncShopFromFirestore();
   applyActiveItems();
 }
 
@@ -1164,8 +1199,13 @@ function renderShopTab(tab) {
         </div>
         <div class="mission-action">${actionHTML}</div>
       `;
-      card.querySelector('[data-action]')?.addEventListener('click', () => {
-        equipItem(mission.id); renderShopTab('missions');
+      card.querySelector('[data-action]')?.addEventListener('click', async e => {
+        const { action, id } = e.currentTarget.dataset;
+        if (action==='buy') {
+          if (await buyItem(id)) { card.classList.add('just-bought'); setTimeout(()=>renderShopTab(_shopActiveTab),400); }
+        } else if (action==='equip') {
+          await equipItem(id); renderShopTab(_shopActiveTab);
+        }
       });
       content.appendChild(card);
     });
@@ -1250,12 +1290,12 @@ function renderShopTab(tab) {
         : '';
 
     card.innerHTML = `${tierBadge}${previewHTML}<div class="shop-card-name">${item.name}</div>${missionTag}<div class="shop-card-sub">${item.desc}</div>${actionHTML}`;
-    card.querySelector('[data-action]')?.addEventListener('click', e => {
+    card.querySelector('[data-action]')?.addEventListener('click', async e => {
       const { action, id } = e.currentTarget.dataset;
       if (action==='buy') {
-        if (buyItem(id)) { card.classList.add('just-bought'); setTimeout(()=>renderShopTab(_shopActiveTab),400); }
+        if (await buyItem(id)) { card.classList.add('just-bought'); setTimeout(()=>renderShopTab(_shopActiveTab),400); }
       } else if (action==='equip') {
-        equipItem(id); renderShopTab(_shopActiveTab);
+        await equipItem(id); renderShopTab(_shopActiveTab);
       }
     });
     content.appendChild(card);
@@ -1265,9 +1305,9 @@ function renderShopTab(tab) {
 
 
 
-/* ╔══════════════════════════════════════════════════╗
+/* ╔══════════════════════════════╗
    ║  13. MISSIONS SYSTEM                             ║
-   ╚══════════════════════════════════════════════════╝
+   ╚══════════════════════════════╝
 
    MISSIONS unlock special avatar emoji — they cannot be
    bought with ⭐, only earned through specific behaviours.
@@ -1449,7 +1489,7 @@ const MISSIONS = [
  * Checks all missions; unlocks any that are now complete.
  * Shows an animated toast for each new unlock.
  */
-function checkAndUnlockMissions() {
+async function checkAndUnlockMissions() {
   const all       = loadAllData();
   const stats     = calcStats();
   const shopState = getShopState();
@@ -1466,7 +1506,7 @@ function checkAndUnlockMissions() {
   });
 
   if (changed) {
-    saveShopState(shopState);
+    await saveShopState(shopState);
     // Live-update missions tab if it's open
     if (document.getElementById('shopModal').style.display !== 'none' && _shopActiveTab==='missions') {
       renderShopTab('missions');
@@ -1615,7 +1655,13 @@ function initEventListeners() {
 
   // Profile: logout / sign in
   document.getElementById('profile-logout-btn').addEventListener('click', async () => {
-    await signOut(auth); closeProfileModal();
+    await signOut(auth);
+    closeProfileModal();
+    // Pulisci localStorage utente e nascondi app
+    Object.keys(localStorage).forEach(k => {
+      if (k.includes(auth.currentUser?.uid)) localStorage.removeItem(k);
+    });
+    hideApp();
   });
   document.getElementById('profile-signin-btn').addEventListener('click', () => {
     closeProfileModal(); showLoginModal(true);
@@ -1670,31 +1716,26 @@ function showLoginError(msg) {
    ╚══════════════════════════════╝ */
 
 async function init(user) {
-  loadSettings();
   state.currentDate = new Date();
   initEventListeners();
 
-  if (user) {
-    await syncAllFromFirestore();
-    await syncShopFromFirestore();
-    try {
-      const snap=await getDoc(doc(db,'users',user.uid,'profile','data'));
-      if (snap.exists()&&snap.data().displayName)
-        localStorage.setItem(CONFIG.getUserStorageKey(PROFILE_KEY), snap.data().displayName);
-    } catch(e) {}
+  if (!user) {
+    hideApp();
+    return;
   }
-
+  await syncAllFromFirestore();
+  await syncShopFromFirestore();
+  await syncSettingsFromFirestore();
+  await syncProfileFromFirestore();
+  loadSettings();
   applyActiveItems();
   await renderDay(dateToKey(state.currentDate));
   renderCalendar();
   updateStatsUI();
-  checkAndUnlockMissions(); // check on every startup (offline usage)
-
+  await checkAndUnlockMissions();
+  showApp();
   const overlay=document.getElementById('loading-overlay');
-  overlay.classList.add('hidden');
-  setTimeout(()=>overlay.remove(), 500);
-
-  console.log('✦ Gratitude — started', user ? `(${user.email})` : '(guest)');
+  if (overlay) { overlay.classList.add('hidden'); setTimeout(()=>overlay.remove(), 500); }
 }
 
 let _initialized = false;
@@ -1704,9 +1745,25 @@ onAuthStateChanged(auth, async user => {
     _initialized = true;
     await init(user);
   } else {
-    if (user) { await syncAllFromFirestore(); await syncShopFromFirestore(); }
-    applyActiveItems();
-    await renderDay(dateToKey(state.currentDate));
-    renderCalendar(); updateStatsUI();
+    if (user) {
+      await syncAllFromFirestore();
+      await syncShopFromFirestore();
+      applyActiveItems();
+      await renderDay(dateToKey(state.currentDate));
+      renderCalendar();
+      updateStatsUI();
+      showApp();
+    } else {
+      hideApp();
+    }
   }
 });
+
+function showApp() {
+  document.getElementById('app-container').style.display = '';
+  showLoginModal(false);
+}
+function hideApp() {
+  document.getElementById('app-container').style.display = 'none';
+  showLoginModal(true);
+}
