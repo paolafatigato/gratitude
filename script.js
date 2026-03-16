@@ -1084,7 +1084,7 @@ function applyActiveItems() {
 
   const avatarId  = active.avatar;
   const emoji     = getAvatarEmoji(avatarId);
-  const sizes     = { 'header-avatar-emoji': 56, 'shop-avatar-big': 56, 'profile-avatar-display': 160 };
+  const sizes     = { 'header-avatar-emoji': 56, 'shop-avatar-big': 112, 'profile-avatar-display': 160 };
   Object.entries(sizes).forEach(([elId, sz]) => {
     const el = document.getElementById(elId);
     if (el) el.innerHTML = avatarImgHTML(avatarId, emoji, sz);
@@ -1158,7 +1158,7 @@ function renderShopTab(tab) {
 
   const bigAv  = getAvatarEmoji(shopState.active.avatar);
   const bigEl  = document.getElementById('shop-avatar-big');
-  if(bigEl) bigEl.innerHTML = avatarImgHTML(shopState.active.avatar, bigAv, 56);
+  if(bigEl) bigEl.innerHTML = avatarImgHTML(shopState.active.avatar, bigAv, 112);
 
   document.querySelectorAll('.shop-tab').forEach(btn => btn.classList.toggle('active',btn.dataset.tab===tab));
 
