@@ -1373,6 +1373,114 @@ function isSportCategory(category) {
   return isEventuallySportEmoji || isSportByName;
 }
 
+/** Helper: detect if a category is "Love" based on emoji AND/OR name */
+function isLoveCategory(category) {
+  if (!category) return false;
+  const { label, emoji } = category;
+  
+  const loveEmojis = ['❤️','❤','💕','💖','💗','💝','💞','💘','💑','👫'];
+  const loveKeywords = ['love','amore','amour','romantic','romance'];
+  
+  const norm = e => e.replace(/\uFE0F|\u200D/g,'');
+  const normalizedEmoji = norm(emoji);
+  
+  const isLoveEmoji = loveEmojis.some(le => normalizedEmoji.startsWith(norm(le)));
+  const labelLower = label.toLowerCase();
+  const isLoveByName = loveKeywords.some(kw => labelLower.includes(kw));
+  
+  return isLoveEmoji || isLoveByName;
+}
+
+/** Helper: detect if a category is "School" based on emoji AND/OR name */
+function isSchoolCategory(category) {
+  if (!category) return false;
+  const { label, emoji } = category;
+  
+  const schoolEmojis = ['📚','📖','✏️','✏','📝','📕','📗','📘','📙','🎓'];
+  const schoolKeywords = ['school','university','uni','education','study','studying','learning','academic','classe'];
+  
+  const norm = e => e.replace(/\uFE0F|\u200D/g,'');
+  const normalizedEmoji = norm(emoji);
+  
+  const isSchoolEmoji = schoolEmojis.some(se => normalizedEmoji.startsWith(norm(se)));
+  const labelLower = label.toLowerCase();
+  const isSchoolByName = schoolKeywords.some(kw => labelLower.includes(kw));
+  
+  return isSchoolEmoji || isSchoolByName;
+}
+
+/** Helper: detect if a category is "Family" based on emoji AND/OR name */
+function isFamilyCategory(category) {
+  if (!category) return false;
+  const { label, emoji } = category;
+  
+  const familyEmojis = ['🏡','🏠','👨‍👩‍👧‍👦','👪','🏘️','❤️','👨‍👩‍👧','👨‍👩‍👦','👶','👧','👦'];
+  const familyKeywords = ['family','famiglia','famiglie','parent','mamma','papà','padre','madre','brother','sorella','fratello','sister','relatives','parenti'];
+  
+  const norm = e => e.replace(/\uFE0F|\u200D/g,'');
+  const normalizedEmoji = norm(emoji);
+  
+  const isFamilyEmoji = familyEmojis.some(fe => normalizedEmoji.startsWith(norm(fe)));
+  const labelLower = label.toLowerCase();
+  const isFamilyByName = familyKeywords.some(kw => labelLower.includes(kw));
+  
+  return isFamilyEmoji || isFamilyByName;
+}
+
+/** Helper: detect if a category is "Friendship" based on emoji AND/OR name */
+function isFriendshipCategory(category) {
+  if (!category) return false;
+  const { label, emoji } = category;
+  
+  const friendshipEmojis = ['🤝','👫','👬','👭','🫂','👥','💑','🤜','🤛','✌️','🙌'];
+  const friendshipKeywords = ['friend','amico','amici','friendship','amicizia','buddy','pal','companion','compagno','colleghi'];
+  
+  const norm = e => e.replace(/\uFE0F|\u200D/g,'');
+  const normalizedEmoji = norm(emoji);
+  
+  const isFriendshipEmoji = friendshipEmojis.some(fie => normalizedEmoji.startsWith(norm(fie)));
+  const labelLower = label.toLowerCase();
+  const isFriendshipByName = friendshipKeywords.some(kw => labelLower.includes(kw));
+  
+  return isFriendshipEmoji || isFriendshipByName;
+}
+
+/** Helper: detect if a category is "Health" based on emoji AND/OR name */
+function isHealthCategory(category) {
+  if (!category) return false;
+  const { label, emoji } = category;
+  
+  const healthEmojis = ['🌱','🌿','💚','🏥','⚕️','💊','🩺','🧘','🏃','🚴','🏋️','🧗','🤸','🧘‍♀️','🧑‍⚕️'];
+  const healthKeywords = ['health','salute','wellness','well-being','benessere','fitness','exercise','workout','yoga','meditation','meditazione','sport','dieta','diet'];
+  
+  const norm = e => e.replace(/\uFE0F|\u200D/g,'');
+  const normalizedEmoji = norm(emoji);
+  
+  const isHealthEmoji = healthEmojis.some(he => normalizedEmoji.startsWith(norm(he)));
+  const labelLower = label.toLowerCase();
+  const isHealthByName = healthKeywords.some(kw => labelLower.includes(kw));
+  
+  return isHealthEmoji || isHealthByName;
+}
+
+/** Helper: detect if a category is "Work" based on emoji AND/OR name */
+function isWorkCategory(category) {
+  if (!category) return false;
+  const { label, emoji } = category;
+  
+  const workEmojis = ['💼','🏢','📊','💻','🖥️','⌨️','🖱️','📈','📉','📋','✍️','🧑‍💼','👔','🏭','🏪','🏬'];
+  const workKeywords = ['work','lavoro','job','office','ufficio','career','carriera','business','progetto','project','task','meeting','riunione','azienda','company'];
+  
+  const norm = e => e.replace(/\uFE0F|\u200D/g,'');
+  const normalizedEmoji = norm(emoji);
+  
+  const isWorkEmoji = workEmojis.some(we => normalizedEmoji.startsWith(norm(we)));
+  const labelLower = label.toLowerCase();
+  const isWorkByName = workKeywords.some(kw => labelLower.includes(kw));
+  
+  return isWorkEmoji || isWorkByName;
+}
+
 /** Helper: count entries using a category identified by a predicate function */
 function catCountByPredicate(all, predicateFn) {
   const matchingLabels = settings.categories
@@ -1424,14 +1532,14 @@ const MISSIONS = [
     emoji: '🥰', name: 'Lovebird',
     desc: 'Use the Love ❤️ category 5 times',
     target: 5,
-    progress: (all) => catCountByEmoji(all, '❤'),
+    progress: (all) => catCountByPredicate(all, isLoveCategory),
   },
   {
     id: 'mis_nerd',
     emoji: '🤓', name: 'Scholar',
     desc: 'Use the School 📚 category 5 times',
     target: 5,
-    progress: (all) => catCountByEmoji(all, '📚'),
+    progress: (all) => catCountByPredicate(all, isSchoolCategory),
   },
   {
     id: 'mis_athlete',
@@ -1445,28 +1553,28 @@ const MISSIONS = [
     emoji: '🏠', name: 'Family First',
     desc: 'Use the Family 🏡 category 5 times',
     target: 5,
-    progress: (all) => catCountByEmoji(all, '🏡'),
+    progress: (all) => catCountByPredicate(all, isFamilyCategory),
   },
   {
     id: 'mis_bestfriend',
     emoji: '🫂', name: 'Best Friends',
     desc: 'Use the Friendship 🤝 category 5 times',
     target: 5,
-    progress: (all) => catCountByEmoji(all, '🤝'),
+    progress: (all) => catCountByPredicate(all, isFriendshipCategory),
   },
   {
     id: 'mis_wellness',
     emoji: '🌿', name: 'Wellness',
     desc: 'Use the Health 🌱 category 5 times',
     target: 5,
-    progress: (all) => catCountByEmoji(all, '🌱'),
+    progress: (all) => catCountByPredicate(all, isHealthCategory),
   },
   {
     id: 'mis_hustle',
     emoji: '🧑‍💻', name: 'Hustle',
     desc: 'Use the Work 💼 category 5 times',
     target: 5,
-    progress: (all) => catCountByEmoji(all, '💼'),
+    progress: (all) => catCountByPredicate(all, isWorkCategory),
   },
 
   /* ── HABIT MISSIONS ── */
