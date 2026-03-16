@@ -234,8 +234,7 @@ body {
   border-bottom: 1px solid var(--color-border);
 }
 .shop-avatar-big {
-  font-size: 3.5rem; line-height: 1;
-  filter: drop-shadow(0 2px 4px var(--shadow-accent));
+  font-size: 5rem; line-height: 1;
   transition: transform 0.3s ease;
   display: inline-block;
 }
@@ -363,10 +362,9 @@ body {
   margin-bottom: var(--space-lg);
 }
 .profile-avatar-display {
-  font-size: 5rem;
+  font-size: 12.5rem;
   line-height: 1;
   display: inline-block;
-  filter: drop-shadow(0 4px 10px var(--shadow-accent));
   animation: avatarBounce 0.5s ease;
 }
 @keyframes avatarBounce {
@@ -735,7 +733,7 @@ body {
 
 /* ── 17. HAPPINESS SLIDER ── */
 .happiness-control { display: flex; align-items: center; gap: var(--space-md); }
-.happiness-emoji { font-size: 2.2rem; min-width: 48px; text-align: center; transition: transform 0.2s ease; }
+.happiness-emoji { font-size: 2.6rem; min-width: 48px; text-align: center; transition: transform 0.2s ease; }
 
 .slider-wrap { flex: 1; position: relative; }
 
@@ -858,10 +856,9 @@ body {
 
 /* Left: big emoji */
 .mission-emoji-col {
-  font-size: 2.4rem;
+  font-size: 3rem;
   line-height: 1;
   text-align: center;
-  filter: drop-shadow(0 2px 3px var(--shadow-accent));
   transition: transform 0.25s ease;
 }
 .mission-card:hover .mission-emoji-col { transform: scale(1.15) rotate(-5deg); }
@@ -1075,31 +1072,28 @@ body {
 .avatar-img {
   display: inline-block;
   object-fit: contain;
-  border-radius: 50%;
+  border-radius: 8px;
   vertical-align: middle;
   /* Crisp pixel art if you draw at low res, smooth otherwise */
   image-rendering: auto;
-  /* Subtle shadow so illustrations pop on any background */
-  filter: drop-shadow(0 1px 3px rgba(0,0,0,.18));
   transition: transform 0.15s ease;
 }
 
 /* Header pill — keep it tight */
 #header-avatar-emoji .avatar-img,
 .avatar-btn .avatar-img {
-  border-radius: 50%;
+  border-radius: 8px;
 }
 
 /* Shop big avatar & profile big avatar — a little breathing room */
 #shop-avatar-big .avatar-img,
 #profile-avatar-display .avatar-img {
-  border-radius: 50%;
-  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  border-radius: 12px;
 }
 
 /* Shop card preview */
 .shop-preview--avatar .avatar-img {
-  border-radius: 50%;
+  border-radius: 8px;
 }
 
 /* Mission card left column */

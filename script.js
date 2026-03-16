@@ -1084,7 +1084,7 @@ function applyActiveItems() {
 
   const avatarId  = active.avatar;
   const emoji     = getAvatarEmoji(avatarId);
-  const sizes     = { 'header-avatar-emoji': 28, 'shop-avatar-big': 56, 'profile-avatar-display': 64 };
+  const sizes     = { 'header-avatar-emoji': 28, 'shop-avatar-big': 56, 'profile-avatar-display': 160 };
   Object.entries(sizes).forEach(([elId, sz]) => {
     const el = document.getElementById(elId);
     if (el) el.innerHTML = avatarImgHTML(avatarId, emoji, sz);
@@ -1316,10 +1316,8 @@ function renderShopTab(tab) {
 }
 
 
-
-
 /* ╔══════════════════════════════╗
-   ║  13. MISSIONS SYSTEM                             ║
+   ║  13. MISSIONS SYSTEM         ║
    ╚══════════════════════════════╝
 
    MISSIONS unlock special avatar emoji — they cannot be
@@ -1639,7 +1637,7 @@ function openProfileModal() {
   const user      = auth.currentUser;
   const name      = getDisplayName();
   const bigEl     = document.getElementById('profile-avatar-display');
-  if(bigEl) bigEl.innerHTML = avatarImgHTML(avatarId, emoji, 64);
+  if(bigEl) bigEl.innerHTML = avatarImgHTML(avatarId, emoji, 160);
   const nameInput=document.getElementById('profile-name-input');
   if(nameInput) nameInput.value=name;
   const toast=document.getElementById('profile-name-saved-toast');
