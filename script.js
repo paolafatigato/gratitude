@@ -1084,7 +1084,7 @@ function applyActiveItems() {
 
   const avatarId  = active.avatar;
   const emoji     = getAvatarEmoji(avatarId);
-  const sizes     = { 'header-avatar-emoji': 28, 'shop-avatar-big': 56, 'profile-avatar-display': 160 };
+  const sizes     = { 'header-avatar-emoji': 56, 'shop-avatar-big': 56, 'profile-avatar-display': 160 };
   Object.entries(sizes).forEach(([elId, sz]) => {
     const el = document.getElementById(elId);
     if (el) el.innerHTML = avatarImgHTML(avatarId, emoji, sz);
@@ -1433,7 +1433,7 @@ function isFriendshipCategory(category) {
   const { label, emoji } = category;
   
   const friendshipEmojis = ['🤝','👫','👬','👭','🫂','👥','💑','🤜','🤛','✌️','🙌'];
-  const friendshipKeywords = ['friend','amico','amici','friendship','amicizia','buddy','pal','companion','compagno','colleghi'];
+  const friendshipKeywords = ['friend','amico','amici','friendship','amicizia','buddy','pal','companion','friends','amiche'];
   
   const norm = e => e.replace(/\uFE0F|\u200D/g,'');
   const normalizedEmoji = norm(emoji);
