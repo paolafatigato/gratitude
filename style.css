@@ -1067,3 +1067,58 @@ body {
   }
   .stats-card-mission-badge { margin-top: var(--space-xs); }
 }
+
+/* ── AVATAR IMAGES ─────────────────────────────────────────
+   Custom illustrations from avatars/{id}.png.
+   Fallback to emoji via onerror in JS.
+──────────────────────────────────────────────────────────── */
+.avatar-img {
+  display: inline-block;
+  object-fit: contain;
+  border-radius: 50%;
+  vertical-align: middle;
+  /* Crisp pixel art if you draw at low res, smooth otherwise */
+  image-rendering: auto;
+  /* Subtle shadow so illustrations pop on any background */
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,.18));
+  transition: transform 0.15s ease;
+}
+
+/* Header pill — keep it tight */
+#header-avatar-emoji .avatar-img,
+.avatar-btn .avatar-img {
+  border-radius: 50%;
+}
+
+/* Shop big avatar & profile big avatar — a little breathing room */
+#shop-avatar-big .avatar-img,
+#profile-avatar-display .avatar-img {
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+}
+
+/* Shop card preview */
+.shop-preview--avatar .avatar-img {
+  border-radius: 50%;
+}
+
+/* Mission card left column */
+.mission-emoji-col .avatar-img {
+  border-radius: 12px;   /* slightly rounded square for mission rewards */
+}
+
+/* Stats card last-mission slot */
+.stats-card-mission-emoji .avatar-img {
+  border-radius: 10px;
+}
+
+/* Mission unlock toast */
+.mission-toast-emoji .avatar-img {
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+/* Hover lift on avatar button */
+.avatar-btn:hover .avatar-img {
+  transform: scale(1.08);
+}

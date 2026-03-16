@@ -623,7 +623,7 @@ function renderStatsModal(catRange='all') {
   if (lastMission) {
     summaryRow.innerHTML += `
       <div class="stats-card stats-card--mission">
-        <span class="stats-card-mission-emoji">${lastMission.emoji}</span>
+        <span class="stats-card-mission-emoji">${avatarImgHTML(lastMission.id, lastMission.emoji, 40)}</span>
         <div class="stats-card-mission-body">
           <div class="stats-card-mission-label">Last mission accomplished</div>
           <div class="stats-card-mission-name">${lastMission.name}</div>
@@ -1061,6 +1061,16 @@ function getAvatarEmoji(id) {
   return '👤';
 }
 
+/**
+ * Returns an <img> pointing to avatars/{id}.png.
+ * If the file doesn't exist, onerror swaps it back to the emoji span.
+ * size  — display size in px (default 40)
+ */
+function avatarImgHTML(id, emoji, size = 40) {
+  const esc = emoji.replace(/'/g, '&#39;');
+  return `<img src="avatars/${id}.png" width="${size}" height="${size}" alt="${esc}" class="avatar-img" onerror="this.outerHTML='<span style=\\'font-size:${size * 0.8}px\\'>${esc}</span>'">`;
+}
+
 function applyActiveItems() {
   const { active } = getShopState();
   const theme = SHOP_CATALOG.themes.find(t => t.id===active.theme) || SHOP_CATALOG.themes[0];
@@ -1072,9 +1082,12 @@ function applyActiveItems() {
     ? `:root {\n${entries.map(([k,v]) => `  ${k}: ${v};`).join('\n')}\n}`
     : '';
 
-  const emoji = getAvatarEmoji(active.avatar);
-  ['header-avatar-emoji','shop-avatar-big','profile-avatar-display'].forEach(id => {
-    const el=document.getElementById(id); if(el) el.textContent=emoji;
+  const avatarId  = active.avatar;
+  const emoji     = getAvatarEmoji(avatarId);
+  const sizes     = { 'header-avatar-emoji': 28, 'shop-avatar-big': 56, 'profile-avatar-display': 64 };
+  Object.entries(sizes).forEach(([elId, sz]) => {
+    const el = document.getElementById(elId);
+    if (el) el.innerHTML = avatarImgHTML(avatarId, emoji, sz);
   });
 }
 
@@ -1143,9 +1156,9 @@ function renderShopTab(tab) {
   if(pd) pd.textContent=available;
   if(ed) ed.textContent=earned;
 
-  const bigAv = getAvatarEmoji(shopState.active.avatar);
-  const bigEl = document.getElementById('shop-avatar-big');
-  if(bigEl) bigEl.textContent=bigAv;
+  const bigAv  = getAvatarEmoji(shopState.active.avatar);
+  const bigEl  = document.getElementById('shop-avatar-big');
+  if(bigEl) bigEl.innerHTML = avatarImgHTML(shopState.active.avatar, bigAv, 56);
 
   document.querySelectorAll('.shop-tab').forEach(btn => btn.classList.toggle('active',btn.dataset.tab===tab));
 
@@ -1184,7 +1197,7 @@ function renderShopTab(tab) {
 
       card.innerHTML = `
         <div class="mission-emoji-col${unlocked ? '' : ' mission-emoji-col--locked'}">
-          ${unlocked ? mission.emoji : '🔒'}
+          ${unlocked ? avatarImgHTML(mission.id, mission.emoji, 44) : '🔒'}
         </div>
         <div class="mission-body">
           <div class="mission-name">${mission.name}</div>
@@ -1270,7 +1283,7 @@ function renderShopTab(tab) {
     } else if (tab==='fonts') {
       previewHTML = `<div class="shop-preview--font" style="${item.previewStyle}">${item.preview}</div>`;
     } else {
-      previewHTML = `<div class="shop-preview--avatar">${item.emoji}</div>`;
+      previewHTML = `<div class="shop-preview--avatar">${avatarImgHTML(item.id, item.emoji, 56)}</div>`;
     }
 
     const costLabel = item.cost===0 ? (item._fromMission ? '🎯 Mission' : 'Free') : `${item.cost} ⭐`;
@@ -1453,6 +1466,68 @@ const MISSIONS = [
     }) ? 1 : 0,
   },
 
+  /* ── WRITING MISSIONS ── */
+  {
+    id: 'mis_overflow',
+    emoji: '🌊', name: 'Overflow',
+    desc: 'Write 10 or more gratitude entries on a single day',
+    target: 1,
+    progress: (all) => Object.values(all).some(d => (d.gratitudes||[]).filter(g => g.text?.trim()).length >= 10) ? 1 : 0,
+  },
+  {
+    id: 'mis_novelist',
+    emoji: '📖', name: 'Novelist',
+    desc: 'Write a single gratitude entry with more than 100 words',
+    target: 1,
+    progress: (all) => Object.values(all).some(d =>
+      (d.gratitudes||[]).some(g => (g.text||'').trim().split(/\s+/).filter(Boolean).length > 100)
+    ) ? 1 : 0,
+  },
+  {
+    id: 'mis_wordsmith',
+    emoji: '✒️', name: 'Wordsmith',
+    desc: 'Write more than 500 words in total across all your entries',
+    target: 500,
+    progress: (all) => Object.values(all).reduce((total, d) =>
+      total + (d.gratitudes||[]).reduce((s, g) => s + (g.text||'').trim().split(/\s+/).filter(Boolean).length, 0), 0),
+  },
+  {
+    id: 'mis_deepdive',
+    emoji: '🔬', name: 'Deep Dive',
+    desc: 'Write 50 or more words in a single entry on 3 different days',
+    target: 3,
+    progress: (all) => Object.values(all).filter(d =>
+      (d.gratitudes||[]).some(g => (g.text||'').trim().split(/\s+/).filter(Boolean).length >= 50)
+    ).length,
+  },
+  {
+    id: 'mis_earlybird',
+    emoji: '🌅', name: 'Early Bird',
+    desc: 'Write a gratitude entry 7 days in a row before the end of the day',
+    target: 7,
+    progress: (all) => {
+      const days = Object.keys(all).filter(k => (all[k]?.gratitudes||[]).some(g => g.text?.trim())).sort();
+      let streak = 0, best = 0;
+      for (let i = 0; i < days.length; i++) {
+        if (i === 0) { streak = 1; }
+        else {
+          const prev = new Date(days[i-1]), curr = new Date(days[i]);
+          const diff = (curr - prev) / 86400000;
+          streak = diff === 1 ? streak + 1 : 1;
+        }
+        if (streak > best) best = streak;
+      }
+      return Math.min(best, 7);
+    },
+  },
+  {
+    id: 'mis_centurion',
+    emoji: '💯', name: 'Centurion',
+    desc: 'Write 100 gratitude entries in total',
+    target: 100,
+    progress: (all) => Object.values(all).reduce((s,d) => s + (d.gratitudes||[]).filter(g => g.text?.trim()).length, 0),
+  },
+
   /* ── STREAK / COMPLETION MISSIONS ── */
   {
     id: 'mis_week',
@@ -1519,7 +1594,7 @@ function showMissionUnlockedToast(mission) {
   const toast = document.createElement('div');
   toast.className='mission-toast';
   toast.innerHTML=`
-    <span class="mission-toast-emoji">${mission.emoji}</span>
+    <span class="mission-toast-emoji">${avatarImgHTML(mission.id, mission.emoji, 40)}</span>
     <div class="mission-toast-body">
       <div class="mission-toast-title">Mission unlocked!</div>
       <div class="mission-toast-name">${mission.name}</div>
@@ -1559,11 +1634,12 @@ async function saveDisplayName(name) {
 
 function openProfileModal() {
   const shopState = getShopState();
-  const emoji     = getAvatarEmoji(shopState.active.avatar);
+  const avatarId  = shopState.active.avatar;
+  const emoji     = getAvatarEmoji(avatarId);
   const user      = auth.currentUser;
   const name      = getDisplayName();
-  const bigEl=document.getElementById('profile-avatar-display');
-  if(bigEl) bigEl.textContent=emoji;
+  const bigEl     = document.getElementById('profile-avatar-display');
+  if(bigEl) bigEl.innerHTML = avatarImgHTML(avatarId, emoji, 64);
   const nameInput=document.getElementById('profile-name-input');
   if(nameInput) nameInput.value=name;
   const toast=document.getElementById('profile-name-saved-toast');
