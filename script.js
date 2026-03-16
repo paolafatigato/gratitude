@@ -1347,6 +1347,44 @@ function catCountByEmoji(all, targetEmoji) {
   return count;
 }
 
+/** Helper: detect if a category is a "Sport" based on emoji AND/OR name */
+function isSportCategory(category) {
+  if (!category) return false;
+  const { label, emoji } = category;
+  
+  // Sport-related emojis: ball sports, racket sports, etc.
+  const sportEmojis = ['⚽','🏀','🏈','⚾','🥎','🎾','🏐','🏓','🏸','⛳','🏑','🏒','🥍','🛷','🏔️','⛷️','🏂','🤿','🏄','🏊','🤽','🏇','🤺','🏌️','🏇','⛹️','🤺','🤼','🤸','⛹️','🥋','🥊'];
+  
+  // Sport-related keywords in label (case-insensitive)
+  const sportKeywords = ['sport','gym','volleyball','volley','pallavolo','calcio','football','basket','basketball','tennis','calcetto','running','corsa','nuoto','swimming','cycling'];
+  
+  const norm = e => e.replace(/\uFE0F|\u200D/g,'');
+  const normalizedEmoji = norm(emoji);
+  
+  // Check by emoji match
+  const isEventuallySportEmoji = sportEmojis.some(se => 
+    normalizedEmoji.startsWith(norm(se))
+  );
+  
+  // Check by name match (case-insensitive)
+  const labelLower = label.toLowerCase();
+  const isSportByName = sportKeywords.some(kw => labelLower.includes(kw));
+  
+  return isEventuallySportEmoji || isSportByName;
+}
+
+/** Helper: count entries using a category identified by a predicate function */
+function catCountByPredicate(all, predicateFn) {
+  const matchingLabels = settings.categories
+    .filter(predicateFn)
+    .map(c => c.label);
+  let count = 0;
+  Object.values(all).forEach(day => {
+    (day.gratitudes||[]).forEach(g => { if(matchingLabels.includes(g.category)) count++; });
+  });
+  return count;
+}
+
 const MISSIONS = [
 
   /* ── MOOD MISSIONS ── */
@@ -1400,7 +1438,7 @@ const MISSIONS = [
     emoji: '💪', name: 'Athlete',
     desc: 'Use the Sport ⚽ category 5 times',
     target: 5,
-    progress: (all) => catCountByEmoji(all, '⚽'),
+    progress: (all) => catCountByPredicate(all, isSportCategory),
   },
   {
     id: 'mis_family',
