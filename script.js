@@ -483,7 +483,8 @@ async function renderDay(dateKey) {
 function updateHappinessUI(value) {
   document.getElementById('happiness-value').textContent = value;
   const emojiEl = document.getElementById('happiness-emoji');
-  emojiEl.textContent = CONFIG.HAPPINESS_EMOJIS[value-1];
+  emojiEl.src = 'emojis/' + value + '.png';
+  emojiEl.alt = CONFIG.HAPPINESS_EMOJIS[value-1];
   emojiEl.style.transform = 'scale(1.2)';
   setTimeout(() => { emojiEl.style.transform=''; }, 200);
 }
