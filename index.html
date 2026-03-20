@@ -193,25 +193,31 @@
 
           <!-- Streak pill -->
           <div class="stat-pill" title="Current streak">
-            <span class="stat-icon">🔥</span>
+            <span class="stat-icon"><img src="symbols/fire.png" alt="🔥" class="header-icon-img" onerror="this.replaceWith('🔥')"></span>
             <span class="stat-value" id="streak-current">0</span>
             <span class="stat-label">days</span>
           </div>
 
-          <!-- Points pill — opens Shop -->
-          <button id="points-pill" class="stat-pill stat-pill-btn" title="Open Shop">
-            <span class="stat-icon">⭐</span>
+          <!-- Points pill -->
+          <div class="stat-pill" title="Your points">
+            <span class="stat-icon"><img src="symbols/star.png" alt="⭐" class="header-icon-img" onerror="this.replaceWith('⭐')"></span>
             <span class="stat-value" id="points-total">0</span>
-            <span class="stat-label">pts · Shop</span>
+            <span class="stat-label">pts</span>
+          </div>
+
+          <!-- Shop button -->
+          <button id="shopBtn" class="icon-btn" title="Open Shop">
+            <img src="symbols/gift.png" alt="🎪" class="header-icon-img" onerror="this.replaceWith('🎪')">
+            <span class="stat-label">Shop</span>
           </button>
 
           <!-- Stats -->
           <button id="statsBtn" class="icon-btn stats-btn" title="Statistics">
-            📊 <span class="stat-label">Stats</span>
+            <img src="symbols/arrow.png" alt="📊" class="header-icon-img" onerror="this.replaceWith('📊')"> <span class="stat-label">Stats</span>
           </button>
 
           <!-- Settings -->
-          <button id="settingsBtn" class="icon-btn" title="Settings">⚙️</button>
+          <button id="settingsBtn" class="icon-btn" title="Settings"><img src="symbols/settings_pink.png" alt="⚙️" class="header-icon-img" onerror="this.replaceWith('⚙️')"></button>
 
           <!-- Avatar button — replaces old auth button.
                Shows active avatar emoji. Opens profile modal. -->

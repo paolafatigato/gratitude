@@ -1853,7 +1853,7 @@ function initEventListeners() {
   document.getElementById('closeSettings').addEventListener('click', () => document.getElementById('settingsModal').style.display='none');
 
   // Shop
-  document.getElementById('points-pill').addEventListener('click', () => openShopModal('themes'));
+  document.getElementById('shopBtn').addEventListener('click', () => openShopModal('themes'));
   document.getElementById('closeShop').addEventListener('click', () => document.getElementById('shopModal').style.display='none');
   document.querySelectorAll('.shop-tab').forEach(btn => btn.addEventListener('click', () => renderShopTab(btn.dataset.tab)));
 
