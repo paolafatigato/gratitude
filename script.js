@@ -720,51 +720,51 @@ const SHOP_CATALOG = {
       vars: {}
     },
     {
-      id: 'theme_forest', name: 'Forest', desc: 'Deep greens & moss', cost: 30,
-      swatches: ['#f0f4ee','#3a7d44','#7db87f'],
+      id: 'theme_forest', name: 'Forest', desc: 'Earthy greens & warm wood', cost: 30,
+      swatches: ['#f5f4f0','#8fad88','#c2714f'],
       vars: {
-        '--color-bg':'#f0f4ee','--color-surface':'#f8fbf6',
-        '--color-border':'#c5d9c0','--color-accent':'#3a7d44',
-        '--color-accent-dark':'#2b5e33','--color-accent-alt':'#7db87f',
-        '--color-text':'#1e3320','--color-text-muted':'#6a8f6e',
-        '--color-highlight':'#daecd8',
-        '--focus-ring':'rgba(58,125,68,0.20)','--shadow-accent':'rgba(58,125,68,0.30)',
+        '--color-bg':'#f5f4f0','--color-surface':'#faf9f6',
+        '--color-border':'#e8d9c5','--color-accent':'#8fad88',
+        '--color-accent-dark':'#6b8456','--color-accent-alt':'#c2714f',
+        '--color-text':'#3a2e28','--color-text-muted':'#9a8872',
+        '--color-highlight':'#eae4d8',
+        '--focus-ring':'rgba(143,173,136,0.20)','--shadow-accent':'rgba(143,173,136,0.30)',
       }
     },
     {
-      id: 'theme_ocean', name: 'Ocean', desc: 'Deep blue & teal', cost: 30,
-      swatches: ['#eef4f8','#2c7da0','#52b2cf'],
+      id: 'theme_ocean', name: 'Ocean', desc: 'Deep twilight blue & aqua', cost: 30,
+      swatches: ['#f0f4fa','#3548c0','#85d5c8'],
       vars: {
-        '--color-bg':'#eef4f8','--color-surface':'#f5f9fc',
-        '--color-border':'#b8d4e4','--color-accent':'#2c7da0',
-        '--color-accent-dark':'#1d5f7c','--color-accent-alt':'#52b2cf',
-        '--color-text':'#132635','--color-text-muted':'#5a8aa4',
-        '--color-highlight':'#d4e8f2',
-        '--focus-ring':'rgba(44,125,160,0.20)','--shadow-accent':'rgba(44,125,160,0.30)',
+        '--color-bg':'#f0f4fa','--color-surface':'#f7f9fd',
+        '--color-border':'#c8d8f5','--color-accent':'#3548c0',
+        '--color-accent-dark':'#263a8f','--color-accent-alt':'#85d5c8',
+        '--color-text':'#1a2240','--color-text-muted':'#5a7ab8',
+        '--color-highlight':'#dae6f5',
+        '--focus-ring':'rgba(53,72,192,0.20)','--shadow-accent':'rgba(53,72,192,0.30)',
       }
     },
     {
-      id: 'theme_lavender', name: 'Lavender', desc: 'Soft purples & lilac', cost: 30,
-      swatches: ['#f4f0fb','#7c5cbf','#b89fe0'],
+      id: 'theme_lavender', name: 'Lavender', desc: 'Soft mauve & peach dreams', cost: 30,
+      swatches: ['#faf7fc','#d7b8f1','#685bc7'],
       vars: {
-        '--color-bg':'#f4f0fb','--color-surface':'#faf8fe',
-        '--color-border':'#d5c8f0','--color-accent':'#7c5cbf',
-        '--color-accent-dark':'#5e3fa0','--color-accent-alt':'#b89fe0',
-        '--color-text':'#2a1f40','--color-text-muted':'#8a76b0',
-        '--color-highlight':'#ece5f8',
-        '--focus-ring':'rgba(124,92,191,0.20)','--shadow-accent':'rgba(124,92,191,0.30)',
+        '--color-bg':'#faf7fc','--color-surface':'#fdfbfe',
+        '--color-border':'#e8ddf7','--color-accent':'#d7b8f1',
+        '--color-accent-dark':'#b491d9','--color-accent-alt':'#685bc7',
+        '--color-text':'#2d1f3a','--color-text-muted':'#9d85b8',
+        '--color-highlight':'#f0e8f8',
+        '--focus-ring':'rgba(215,184,241,0.20)','--shadow-accent':'rgba(215,184,241,0.30)',
       }
     },
     {
-      id: 'theme_rose', name: 'Rosé', desc: 'Blush & warm pinks', cost: 40,
-      swatches: ['#fdf0f2','#c25c7a','#e8a0b2'],
+      id: 'theme_rose', name: 'Blushing pilgrims', desc: 'Blush pink', cost: 40,
+      swatches: ['#fdf5f2','#ff98a9','#E84D66'],
       vars: {
-        '--color-bg':'#fdf0f2','--color-surface':'#fff6f8',
-        '--color-border':'#f0c8d4','--color-accent':'#c25c7a',
-        '--color-accent-dark':'#9e3d5a','--color-accent-alt':'#e8a0b2',
-        '--color-text':'#3a1824','--color-text-muted':'#a06878',
-        '--color-highlight':'#fbe0e8',
-        '--focus-ring':'rgba(194,92,122,0.20)','--shadow-accent':'rgba(194,92,122,0.30)',
+        '--color-bg':'#fdf5f2','--color-surface':'#fffaf8',
+        '--color-border':'#f0d5d0','--color-accent':'#ff98a9',
+        '--color-accent-dark':'#e0607a','--color-accent-alt':'#E84D66',
+        '--color-text':'#3a1f25','--color-text-muted':'#a07880',
+        '--color-highlight':'#ffe8f0',
+        '--focus-ring':'rgba(255,152,169,0.20)','--shadow-accent':'rgba(255,152,169,0.30)',
       }
     },
     {
@@ -816,6 +816,30 @@ const SHOP_CATALOG = {
         '--color-text':'#0e2e2a','--color-text-muted':'#5a9e98',
         '--color-highlight':'#d0f0ec',
         '--focus-ring':'rgba(133,213,200,0.22)','--shadow-accent':'rgba(133,213,200,0.35)',
+      }
+    },
+    {
+      id: 'theme_tropicalfire', name: 'Tropical Fire', desc: 'Electric lime meets vibrant coral', cost: 100,
+      swatches: ['#f5fde8','#FE572A','#DAFF02'],
+      vars: {
+        '--color-bg':'#f5fde8','--color-surface':'#fffef2',
+        '--color-border':'#f0f0a8','--color-accent':'#FE572A',
+        '--color-accent-dark':'#d04010','--color-accent-alt':'#DAFF02',
+        '--color-text':'#2a1608','--color-text-muted':'#a07030',
+        '--color-highlight':'#f5efe8',
+        '--focus-ring':'rgba(254,87,42,0.22)','--shadow-accent':'rgba(254,87,42,0.35)',
+      }
+    },
+    {
+      id: 'theme_blissful', name: 'Blissful Breeze', desc: 'Soft mauve with peachy warmth', cost: 100,
+      swatches: ['#fcf5f8','#D7B8F1','#E8D9C5'],
+      vars: {
+        '--color-bg':'#fcf5f8','--color-surface':'#fef9fb',
+        '--color-border':'#f0ddf5','--color-accent':'#D7B8F1',
+        '--color-accent-dark':'#b491d9','--color-accent-alt':'#E8D9C5',
+        '--color-text':'#2d1f3a','--color-text-muted':'#a88fa8',
+        '--color-highlight':'#f5e8f2',
+        '--focus-ring':'rgba(215,184,241,0.22)','--shadow-accent':'rgba(215,184,241,0.35)',
       }
     },
 
