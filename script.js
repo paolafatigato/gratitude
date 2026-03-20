@@ -528,14 +528,20 @@ async function handlePhotoSelected(entryEl, file) {
   entryEl.querySelector('.entry-actions').insertAdjacentElement('afterend',ind);
   try {
     const resized=await resizeImage(file);
+    let usedFirebase=false;
     if (auth.currentUser) {
       ind.textContent='Uploading…';
-      const path=`users/${auth.currentUser.uid}/entries/${dateToKey(state.currentDate)}/${entryEl.dataset.index}_${Date.now()}.jpg`;
-      const ref=storageRef(storage,path);
-      await uploadBytes(ref,resized);
-      const url=await getDownloadURL(ref);
-      ind.remove(); attachPhotoPreview(entryEl,url); triggerAutoSave(true);
-    } else {
+      try {
+        const path=`users/${auth.currentUser.uid}/entries/${dateToKey(state.currentDate)}/${entryEl.dataset.index}_${Date.now()}.jpg`;
+        const ref=storageRef(storage,path);
+        const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),12000));
+        await Promise.race([uploadBytes(ref,resized),timeout]);
+        const url=await getDownloadURL(ref);
+        ind.remove(); attachPhotoPreview(entryEl,url); triggerAutoSave(true);
+        usedFirebase=true;
+      } catch(_) { /* Storage unavailable — fall through to base64 */ }
+    }
+    if (!usedFirebase) {
       const reader=new FileReader();
       reader.onload=e=>{ ind.remove(); attachPhotoPreview(entryEl,e.target.result); triggerAutoSave(true); };
       reader.onerror=()=>ind.remove();
