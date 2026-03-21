@@ -815,6 +815,10 @@ body {
   .stats-cat-header   { flex-direction: column; align-items: flex-start; }
   .shop-content       { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
   .shop-header        { flex-direction: column; align-items: center; text-align: center; }
+  /* Compact header on mobile to keep avatar in one row */
+  .header-inner       { padding: var(--space-xs) var(--space-sm); gap: 3px; }
+  .stats-bar          { gap: 3px; }
+  .stat-pill, .icon-btn { padding: 0 8px; }
 }
 
 
