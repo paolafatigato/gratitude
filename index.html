@@ -82,12 +82,18 @@
       <h2 class="stats-modal-title">Your Statistics</h2>
       <div class="stats-summary-row" id="stats-summary-row"></div>
       <div class="stats-section">
-        <h3 class="stats-section-heading">Days completed per month</h3>
+        <div class="stats-section-header">
+          <img src="symbols/graph.png" alt="Daily Calendar" class="stats-section-icon">
+          <h3 class="stats-section-heading">Days completed per month</h3>
+        </div>
         <div id="stats-monthly-chart"></div>
       </div>
       <div class="stats-section">
         <div class="stats-cat-header">
-          <h3 class="stats-section-heading">What made me most grateful</h3>
+          <div class="stats-header-left">
+            <img src="symbols/gift.png" alt="What made me grateful" class="stats-section-icon">
+            <h3 class="stats-section-heading">What made me most grateful</h3>
+          </div>
           <div class="stats-tabs" id="stats-tabs">
             <button class="stats-tab active" data-range="all">All time</button>
             <button class="stats-tab" data-range="3">Last 3 months</button>
@@ -97,7 +103,10 @@
         <div id="stats-cat-chart"></div>
       </div>
       <div class="stats-section">
-        <h3 class="stats-section-heading">Average happiness by month</h3>
+        <div class="stats-section-header">
+          <img src="symbols/star.png" alt="Happiness" class="stats-section-icon">
+          <h3 class="stats-section-heading">Average happiness by month</h3>
+        </div>
         <div id="stats-happiness-chart"></div>
       </div>
     </div>
@@ -121,7 +130,7 @@
       <div class="shop-tabs">
         <button class="shop-tab active" data-tab="themes"><img src="symbols/paint.png" alt="🎨" class="header-icon-img" onerror="this.replaceWith('🎨')"> Themes</button>
         <button class="shop-tab" data-tab="fonts"><img src="symbols/write.png" alt="✍️" class="header-icon-img" onerror="this.replaceWith('✍️')"> Fonts</button>
-        <button class="shop-tab" data-tab="avatars">🐾 Avatars</button>
+        <button class="shop-tab" data-tab="avatars"><img src="symbols/avatars.png" alt="🐾" class="header-icon-img" onerror="this.replaceWith('🐾')"> Avatars</button>
         <button class="shop-tab" data-tab="missions">🎯 Missions</button>
       </div>
       <div class="shop-content" id="shop-content"></div>

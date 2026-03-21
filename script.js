@@ -614,13 +614,14 @@ function renderStatsModal(catRange='all') {
 
   // ── 5 numeric cards ──
   [
-    { icon:'⭐', value:available,   label:'Points Available' },
-    { icon:'🔥', value:current,     label:'Current Streak'  },
-    { icon:'🏆', value:best,        label:'Best Streak'     },
-    { icon:'✍️',  value:entryStars,  label:'Entry Stars'     },
+    { img:'symbols/star.png', value:available,   label:'Points Available' },
+    { img:'symbols/fire.png', value:current,     label:'Current Streak'  },
+    { img:'symbols/trophy.png', value:best,        label:'Best Streak'     },
+    { img:'symbols/write.png', value:entryStars,  label:'Entry Stars'     },
     { icon:'💥', value:streakBonus, label:'Streak Bonuses'  },
-  ].forEach(({ icon,value,label }) => {
-    summaryRow.innerHTML+=`<div class="stats-card"><div class="stats-card-icon">${icon}</div><div class="stats-card-value">${value}</div><div class="stats-card-label">${label}</div></div>`;
+  ].forEach(({ icon, img, value, label }) => {
+    const iconHTML = img ? `<img src="${img}" class="stats-card-icon-img" onerror="this.replaceWith(icon||'')">` : `<div class="stats-card-icon">${icon}</div>`;
+    summaryRow.innerHTML+=`<div class="stats-card">${iconHTML}<div class="stats-card-value">${value}</div><div class="stats-card-label">${label}</div></div>`;
   });
 
   // ── Last mission accomplished — wide card below the 5 ──
