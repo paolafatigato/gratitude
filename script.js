@@ -1235,7 +1235,7 @@ function renderShopTab(tab) {
           <div class="mission-name">${mission.name}</div>
           <div class="mission-desc">${mission.desc}</div>
           ${unlocked
-            ? `<div class="mission-unlocked-note">✓ Avatar unlocked — equip it!</div>`
+            ? `<div class="mission-unlocked-note">✓ Avatar unlocked!</div>`
             : `<div class="mission-progress-wrap">
                  <div class="mission-progress-fill" style="width:${pct}%"></div>
                </div>

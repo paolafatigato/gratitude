@@ -108,12 +108,15 @@ body {
   box-shadow: var(--shadow-lg);
   padding: var(--space-xl) var(--space-lg);
   position: relative; width: 100%;
-  max-height: 90vh; overflow-y: auto;
+  max-height: 90vh; overflow: hidden; overflow-y: auto;
   animation: slideUp 0.25s ease;
   transition: background-color 0.4s ease, border-color 0.4s ease;
   /* Firefox scrollbar */
   scrollbar-width: thin;
   scrollbar-color: var(--color-accent) var(--color-highlight);
+  /* Reserve space at top/bottom so scrollbar doesn't reach rounded corners */
+  scroll-padding-top: var(--space-lg);
+  scroll-padding-bottom: var(--space-lg);
 }
 /* Webkit scrollbar for all modals */
 .modal-box::-webkit-scrollbar { width: 5px; }
