@@ -1129,6 +1129,11 @@ function getAvatarEmoji(id) {
   return '👤';
 }
 
+/** Returns a star icon img with ⭐ as fallback. */
+function starHTML(size = 16) {
+  return `<img src="symbols/star.png" width="${size}" height="${size}" alt="⭐" class="cost-star-img" onerror="this.outerHTML='⭐'">`;
+}
+
 /**
  * Returns an <img> pointing to avatars/{id}.png.
  * If the file doesn't exist, onerror swaps it back to the emoji span.
@@ -1354,12 +1359,12 @@ function renderShopTab(tab) {
       previewHTML = `<div class="shop-preview--avatar">${avatarImgHTML(item.id, item.emoji, 56)}</div>`;
     }
 
-    const costLabel = item.cost===0 ? (item._fromMission ? '🎯 Mission' : 'Free') : `${item.cost} <span class="cost-star">⭐</span>`;
+    const costLabel = item.cost===0 ? (item._fromMission ? '🎯 Mission' : 'Free') : `${item.cost} ${starHTML(14)}`;
     let actionHTML = '';
     if (active)         actionHTML = `<div class="shop-badge-active">✓ Equipped</div>`;
     else if (owned)     actionHTML = `<button class="shop-btn shop-btn--equip" data-action="equip" data-id="${item.id}">Equip</button>`;
     else if (canAfford) actionHTML = `<button class="shop-btn shop-btn--buy" data-action="buy" data-id="${item.id}">Buy · ${costLabel}</button>`;
-    else                actionHTML = `<button class="shop-btn shop-btn--locked" disabled>Need ${item.cost} <span class="cost-star">⭐</span></button>`;
+    else                actionHTML = `<button class="shop-btn shop-btn--locked" disabled>Need ${item.cost} ${starHTML(14)}</button>`;
 
     const missionTag = item._fromMission
       ? `<div class="shop-card-mission-tag">🎯 Mission</div>` : '';
@@ -1367,7 +1372,7 @@ function renderShopTab(tab) {
     const tierBadge = item.cost >= 200
       ? `<span class="shop-card-tier shop-card-tier--ultra">✦ Ultra</span>`
       : item.cost >= 100
-        ? `<span class="shop-card-tier shop-card-tier--premium">⭐ Premium</span>`
+        ? `<span class="shop-card-tier shop-card-tier--premium">${starHTML(12)} Premium</span>`
         : '';
 
     card.innerHTML = `${tierBadge}${previewHTML}<div class="shop-card-name">${item.name}</div>${missionTag}<div class="shop-card-sub">${item.desc}</div>${actionHTML}`;
