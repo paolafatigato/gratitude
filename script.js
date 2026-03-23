@@ -651,13 +651,34 @@ function renderStatsModal(catRange='all') {
       </div>`;
   }
   const last6=getLast6Months();
+  const allMonths=getAllMonthsSinceStart();
+  const last3Months=allMonths.slice(-3);
+  const olderMonths=allMonths.slice(0,-3).filter(m=>m.completed>0);
+  const hasDropdown=olderMonths.length>0;
   const monthChart=document.getElementById('stats-monthly-chart'); monthChart.innerHTML='';
-  const maxC=Math.max(1,...last6.map(m=>m.completed));
-  if (last6.every(m=>m.completed===0)) { monthChart.innerHTML='<p class="stats-empty">No completed days yet 🌱</p>'; }
-  else last6.forEach(({ label,completed,total }) => {
-    const pct=Math.round((completed/maxC)*100);
-    monthChart.innerHTML+=`<div class="chart-row"><div class="chart-label">${label}</div><div class="chart-bar-wrap"><div class="chart-bar" style="width:${pct}%"></div></div><div class="chart-count">${completed}<span style="color:var(--color-border);font-size:.7rem">/${total}</span></div></div>`;
-  });
+  const maxC=Math.max(1,...allMonths.map(m=>m.completed));
+  if (allMonths.every(m=>m.completed===0)) { monthChart.innerHTML='<p class="stats-empty">No completed days yet 🌱</p>'; }
+  else {
+    const makeMonthRow=({label,completed,total})=>{ const pct=Math.round((completed/maxC)*100); return `<div class="chart-row"><div class="chart-label">${label}</div><div class="chart-bar-wrap"><div class="chart-bar" style="width:${pct}%"></div></div><div class="chart-count">${completed}<span style="color:var(--color-border);font-size:.7rem">/${total}</span></div></div>`; };
+    let chartHTML='';
+    if (hasDropdown) {
+      chartHTML+=`<button class="monthly-toggle-btn" id="monthly-toggle-btn" aria-expanded="false"><svg class="monthly-toggle-icon" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="monthly-toggle-label">Show previous months</span></button>`;
+      chartHTML+=`<div class="monthly-older-rows" id="monthly-older-rows" style="display:none;">${olderMonths.map(makeMonthRow).join('')}</div>`;
+    }
+    chartHTML+=last3Months.map(makeMonthRow).join('');
+    monthChart.innerHTML=chartHTML;
+    if (hasDropdown) {
+      const btn=document.getElementById('monthly-toggle-btn');
+      const olderEl=document.getElementById('monthly-older-rows');
+      btn.addEventListener('click',()=>{
+        const expanded=btn.getAttribute('aria-expanded')==='true';
+        btn.setAttribute('aria-expanded',String(!expanded));
+        olderEl.style.display=expanded?'none':'block';
+        btn.querySelector('.monthly-toggle-icon').style.transform=expanded?'':'rotate(180deg)';
+        btn.querySelector('.monthly-toggle-label').textContent=expanded?'Show previous months':'Hide previous months';
+      });
+    }
+  }
   renderCategoryChart(all,catRange);
   const happyChart=document.getElementById('stats-happiness-chart'); happyChart.innerHTML='';
   getHappinessByMonth(all,last6.map(m=>m.key)).forEach(({ label,avg }) => {
@@ -701,6 +722,27 @@ function getLast6Months() {
     let completed=0;
     Object.entries(all).forEach(([k,v]) => { if(k.startsWith(key)&&v.completed) completed++; });
     result.push({ key, label:formatDate(d).monthShort, completed, total });
+  }
+  return result;
+}
+
+function getAllMonthsSinceStart() {
+  const all=loadAllData(); const keys=Object.keys(all).sort();
+  if (!keys.length) return [];
+  const firstKey=keys[0].slice(0,7);
+  const now=new Date();
+  const nowKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const result=[]; let d=new Date(firstKey+'-01');
+  while (true) {
+    const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if (key>nowKey) break;
+    const daysInMonth=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+    const isCurrent=(key===nowKey);
+    const total=isCurrent?now.getDate():daysInMonth;
+    let completed=0;
+    Object.entries(all).forEach(([k,v]) => { if(k.startsWith(key)&&v.completed) completed++; });
+    result.push({ key, label:formatDate(d).monthShort, completed, total });
+    d=new Date(d.getFullYear(),d.getMonth()+1,1);
   }
   return result;
 }
@@ -991,18 +1033,12 @@ const SHOP_CATALOG = {
 
   /* Shop avatars (bought with ⭐) */
   avatars: [
-    { id:'av_person',    emoji:'👤', name:'Me',        desc:'The default you',  cost:0  },
-    { id:'av_sprout',    emoji:'🌱', name:'Sprout',    desc:'First steps',      cost:10 },
-    { id:'av_sun',       emoji:'☀️',  name:'Sunshine',  desc:'Bright days',      cost:20 },
-    { id:'av_moon',      emoji:'🌙', name:'Moonchild', desc:'Quiet nights',     cost:20 },
-    { id:'av_butterfly', emoji:'🦋', name:'Butterfly', desc:'Growth & change',  cost:30 },
-    { id:'av_cat',       emoji:'🐱', name:'Kitty',     desc:'Cozy & curious',   cost:30 },
-    { id:'av_fox',       emoji:'🦊', name:'Fox',       desc:'Clever & warm',    cost:30 },
-    { id:'av_owl',       emoji:'🦉', name:'Owl',       desc:'Wise & patient',   cost:30 },
-    { id:'av_bear',      emoji:'🐻', name:'Bear',      desc:'Gentle & strong',  cost:40 },
-    { id:'av_dragon',    emoji:'🐉', name:'Dragon',    desc:'Legendary power',  cost:50 },
-    { id:'av_unicorn',   emoji:'🦄', name:'Unicorn',   desc:'Pure magic',       cost:50 },
-    { id:'av_phoenix',   emoji:'🦅', name:'Phoenix',   desc:'Rise every day',   cost:50 },
+    { id:'default',  emoji:'😊', name:'Me',     desc:'The default you',  cost:0  },
+    { id:'avatar1',  emoji:'🫧', name:'Blooby', desc:'Bubbly & bouncy',  cost:10 },
+    { id:'avatar2',  emoji:'🐔', name:'Pluck',  desc:'Bold & feisty',    cost:10 },
+    { id:'avatar3',  emoji:'🤌', name:'Gino',   desc:'Smooth & stylish', cost:20 },
+    { id:'avatar4',  emoji:'🐸', name:'Fluck',   desc:'The elegant frog', cost:20 },
+    { id:'avatar5',  emoji:'🐰', name:'PPil',   desc:'Gentle & jumpy', cost:20 },
   ],
 };
 
@@ -1010,8 +1046,8 @@ const SHOP_CATALOG = {
 
 function getDefaultShopState() {
   return {
-    owned:             ['theme_journal','font_journal','av_person'],
-    active:            { theme:'theme_journal', font:'font_journal', avatar:'av_person' },
+    owned:             ['theme_journal','font_journal','default'],
+    active:            { theme:'theme_journal', font:'font_journal', avatar:'default' },
     spent:             0,
     unlockedMissions:  [],
   };
@@ -1023,7 +1059,7 @@ function getShopState() {
     if (!raw) return getDefaultShopState();
     const saved  = JSON.parse(raw);
     const merged = { ...getDefaultShopState(), ...saved };
-    ['theme_journal','font_journal','av_person'].forEach(id => {
+    ['theme_journal','font_journal','default'].forEach(id => {
       if (!merged.owned.includes(id)) merged.owned.push(id);
     });
     if (!merged.unlockedMissions) merged.unlockedMissions = [];
@@ -1046,7 +1082,7 @@ async function syncShopFromFirestore() {
     if (snap.exists()) {
       const cloud  = snap.data();
       const merged = { ...getDefaultShopState(), ...cloud };
-      ['theme_journal','font_journal','av_person'].forEach(id => {
+      ['theme_journal','font_journal','default'].forEach(id => {
         if (!merged.owned.includes(id)) merged.owned.push(id);
       });
       if (!merged.unlockedMissions) merged.unlockedMissions = [];
@@ -1235,7 +1271,7 @@ function renderShopTab(tab) {
           <div class="mission-name">${mission.name}</div>
           <div class="mission-desc">${mission.desc}</div>
           ${unlocked
-            ? `<div class="mission-unlocked-note">✓ Avatar unlocked!</div>`
+            ? `<div class="mission-unlocked-note">✓ Avatar unlocked — equip it!</div>`
             : `<div class="mission-progress-wrap">
                  <div class="mission-progress-fill" style="width:${pct}%"></div>
                </div>
@@ -1318,12 +1354,12 @@ function renderShopTab(tab) {
       previewHTML = `<div class="shop-preview--avatar">${avatarImgHTML(item.id, item.emoji, 56)}</div>`;
     }
 
-    const costLabel = item.cost===0 ? (item._fromMission ? '🎯 Mission' : 'Free') : `${item.cost} ⭐`;
+    const costLabel = item.cost===0 ? (item._fromMission ? '🎯 Mission' : 'Free') : `${item.cost} <span class="cost-star">⭐</span>`;
     let actionHTML = '';
     if (active)         actionHTML = `<div class="shop-badge-active">✓ Equipped</div>`;
     else if (owned)     actionHTML = `<button class="shop-btn shop-btn--equip" data-action="equip" data-id="${item.id}">Equip</button>`;
     else if (canAfford) actionHTML = `<button class="shop-btn shop-btn--buy" data-action="buy" data-id="${item.id}">Buy · ${costLabel}</button>`;
-    else                actionHTML = `<button class="shop-btn shop-btn--locked" disabled>Need ${item.cost} ⭐</button>`;
+    else                actionHTML = `<button class="shop-btn shop-btn--locked" disabled>Need ${item.cost} <span class="cost-star">⭐</span></button>`;
 
     const missionTag = item._fromMission
       ? `<div class="shop-card-mission-tag">🎯 Mission</div>` : '';

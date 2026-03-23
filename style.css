@@ -245,6 +245,17 @@ body {
 .chart-bar.happiness-bar { background: linear-gradient(90deg, var(--color-accent), var(--color-accent-alt)); }
 .chart-count { font-family: var(--font-display); font-size: 0.95rem; color: var(--color-accent); min-width: 28px; }
 .stats-empty { color: var(--color-text-muted); font-style: italic; font-size: 0.9rem; padding: var(--space-md) 0; }
+.monthly-toggle-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: none; border: 1px solid var(--color-border);
+  border-radius: 999px; color: var(--color-text-muted);
+  cursor: pointer; font-family: var(--font-body); font-size: 0.78rem;
+  padding: 3px 12px; margin-bottom: var(--space-sm);
+  transition: color var(--transition), border-color var(--transition);
+}
+.monthly-toggle-btn:hover { color: var(--color-accent); border-color: var(--color-accent); }
+.monthly-toggle-icon { transition: transform 0.25s ease; flex-shrink: 0; }
+.monthly-older-rows { margin-bottom: var(--space-xs); }
 
 
 /* ── 8. SHOP MODAL ── */
@@ -382,6 +393,8 @@ body {
 .shop-btn--equip { background: var(--color-highlight); color: var(--color-accent); border: 1.5px solid var(--color-accent); }
 .shop-btn--equip:hover { background: var(--color-accent); color: #fff; }
 .shop-btn--locked { background: var(--color-highlight); color: var(--color-text-muted); border: 1px dashed var(--color-border); cursor: not-allowed; font-size: 0.72rem; }
+.cost-star { display: inline-block; width: 1.1em; height: 1.1em; background-image: url('symbols/star.png'); background-size: contain; background-repeat: no-repeat; background-position: center; font-size: 0; vertical-align: -0.15em; }
+.shop-balance .header-icon-img { margin: 0 2px; }
 .shop-badge-active { background: var(--color-accent-alt); color: #fff; border-radius: var(--radius-sm); font-size: 0.78rem; padding: 5px 8px; width: 100%; text-align: center; font-weight: 700; }
 
 @keyframes buyFlash {
