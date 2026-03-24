@@ -429,7 +429,7 @@ function createEntryElement(index, removable=false, data=null) {
     </div>
     <div class="entry-actions">
       <select class="entry-category" data-index="${index}">${catOpts}</select>
-      <button class="btn-photo" type="button">📷 Photo</button>
+      <button class="btn-photo" type="button">📷</button>
       <input type="file" class="photo-file-input" accept="image/*" style="display:none;" />
     </div>`;
   if (data?.photoUrl) attachPhotoPreview(div, data.photoUrl);
@@ -478,6 +478,18 @@ async function renderDay(dateKey) {
   document.getElementById('display-date').textContent = dateStr;
   document.getElementById('btn-next').disabled = dateToKey(state.currentDate) >= todayKey();
   updateStatsUI();
+
+  // Archivist mission: detect viewing an entry written ≥ 30 days ago
+  const _visitKey = CONFIG.getUserStorageKey('gratitude_visited_old');
+  if (!localStorage.getItem(_visitKey)) {
+    const _viewedDate = keyToDate(dateKey);
+    const _today = new Date(); _today.setHours(0,0,0,0);
+    const _diffDays = Math.round((_today - _viewedDate) / 86400000);
+    if (_diffDays >= 30 && data && (data.gratitudes||[]).some(g => g.text?.trim())) {
+      localStorage.setItem(_visitKey, '1');
+      checkAndUnlockMissions();
+    }
+  }
 }
 
 function updateHappinessUI(value) {
@@ -1039,6 +1051,29 @@ const SHOP_CATALOG = {
     { id:'avatar3',  emoji:'🤌', name:'Gino',   desc:'Smooth & stylish', cost:20 },
     { id:'avatar4',  emoji:'🐸', name:'Fluck',   desc:'The elegant frog', cost:20 },
     { id:'avatar5',  emoji:'🐰', name:'PPil',   desc:'Gentle & jumpy', cost:20 },
+    { id:'avatar6',  emoji:'🦊', name:'Groz',   desc:'Fluctuant curiosity', cost:50 },
+    
+    /* ── PENDING AVATARS (uncomment when illustrations ready) ── */
+    // { id:'avatar6',  emoji:'⚡', name:'Dlullo',    desc:'Calmly turbulent', cost:30 },
+    // { id:'avatar7',  emoji:'🌶️', name:'Blolly',    desc:'Cleverly absurd', cost:30 },
+    // { id:'avatar8',  emoji:'🌌', name:'Cloz',      desc:'Cold as fire', cost:40 },
+    // { id:'avatar9',  emoji:'🎲', name:'Flurp',     desc:'Loudly silent', cost:40 },
+    // { id:'avatar10', emoji:'☮️', name:'Glibbon',   desc:'Sweetly annoying', cost:40 },
+    // { id:'avatar11', emoji:'🎮', name:'Hollox',    desc:'Deafeningly quiet', cost:50 },
+    // { id:'avatar12', emoji:'✨', name:'Jillop',    desc:'Tragically funny', cost:50 },
+    // { id:'avatar13', emoji:'⚡', name:'Klozzy',    desc:'Shyly wild', cost:50 },
+    // { id:'avatar14', emoji:'🔮', name:'Mullon',    desc:'Politely mean', cost:60 },
+    // { id:'avatar15', emoji:'🌈', name:'Nollix',    desc:'Wisely naive', cost:60 },
+    // { id:'avatar16', emoji:'🔥', name:'Plubby',    desc:'Darkly brilliant', cost:70 },
+    // { id:'avatar17', emoji:'🌠', name:'Quixol',    desc:'Vainly modest', cost:70 },
+    // { id:'avatar18', emoji:'👑', name:'Rlomad',    desc:'Clearly confused', cost:80 },
+    // { id:'avatar19', emoji:'🎩', name:'Sflazzz',   desc:'Seriously ridiculous', cost:80 },
+    // { id:'avatar20', emoji:'⚛️', name:'Trill',     desc:'Sweetly bitter', cost:90 },
+    // { id:'avatar21', emoji:'🌙', name:'Ullorp',    desc:'Lively sedated', cost:90 },
+    // { id:'avatar22', emoji:'💨', name:'Vlamp',     desc:'Ecstatically restless', cost:100 },
+    // { id:'avatar23', emoji:'👻', name:'Whizzop',   desc:'Composed chaos', cost:100 },
+    // { id:'avatar24', emoji:'🗿', name:'Xylone',    desc:'Scholarly confused', cost:120 },
+    // { id:'avatar25', emoji:'💎', name:'Zlazzleton',desc:'Magnificently mediocre', cost:120 },
   ],
 };
 
@@ -1318,20 +1353,29 @@ function renderShopTab(tab) {
     items = [...items, ...missionAvatars];
   }
 
-  // Universal sort: equipped → owned/unlocked → affordable → locked
+  // Nuovo sort: equipped → a pagamento posseduti → a pagamento non posseduti → missione posseduti
   items = items.slice().sort((a, b) => {
-    const rank = item => {
-      const isActive  = shopState.active[singular] === item.id;
-      const isOwned   = shopState.owned.includes(item.id) || item._fromMission;
-      const canAfford = available >= item.cost;
-      if (isActive)  return 0;
-      if (isOwned)   return 1;
-      if (canAfford) return 2;
-      return 3;
-    };
-    const ra = rank(a), rb = rank(b);
+    function avatarRank(item) {
+      const isActive = shopState.active[singular] === item.id;
+      const isDefault = item.id === 'default';
+      const isOwned = shopState.owned.includes(item.id);
+      const isMission = !!item._fromMission;
+      const isPaid = item.cost > 0 && !isMission;
+      // 0: equipped
+      if (isActive) return 0;
+      // 1: default (solo se non equipped)
+      if (isDefault) return 1;
+      // 2: paid & owned
+      if (isPaid && isOwned) return 2;
+      // 3: paid & not owned
+      if (isPaid && !isOwned) return 3;
+      // 4: mission & owned (unlocked)
+      if (isMission && shopState.unlockedMissions.includes(item.id)) return 4;
+      // 5: altri free avatar (non dovrebbe esserci)
+      return 5;
+    }
+    const ra = avatarRank(a), rb = avatarRank(b);
     if (ra !== rb) return ra - rb;
-    // Within the same tier, keep original order (stable sort)
     return 0;
   });
 
@@ -1773,6 +1817,36 @@ const MISSIONS = [
     desc: 'Reach a 30-day streak',
     target: 30,
     progress: (_all, stats) => Math.min(stats?.best||0, 30),
+  },
+
+  /* ── RETURN / MEMORY MISSIONS ── */
+  {
+    id: 'mis_phoenix',
+    emoji: '🌅', name: 'Phoenix',
+    desc: 'Come back and write after 3 or more days of silence',
+    target: 1,
+    progress: (all) => {
+      const days = Object.keys(all)
+        .filter(k => (all[k]?.gratitudes||[]).some(g => g.text?.trim()))
+        .sort();
+      for (let i = 1; i < days.length; i++) {
+        const prev = keyToDate(days[i-1]);
+        const curr = keyToDate(days[i]);
+        const diff = Math.round((curr - prev) / 86400000);
+        if (diff > 3) return 1;
+      }
+      return 0;
+    },
+  },
+  {
+    id: 'mis_archivist',
+    emoji: '📜', name: 'Archivist',
+    desc: 'Re-read an entry you wrote at least a month ago',
+    target: 1,
+    progress: () => {
+      const key = CONFIG.getUserStorageKey('gratitude_visited_old');
+      return localStorage.getItem(key) ? 1 : 0;
+    },
   },
 ];
 
