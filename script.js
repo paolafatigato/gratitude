@@ -2086,14 +2086,26 @@ async function init(user) {
   state.currentDate = new Date();
   initEventListeners();
 
+  const overlay = document.getElementById('loading-overlay');
+  const removeOverlay = () => {
+    if (overlay) { overlay.classList.add('hidden'); setTimeout(() => overlay.remove(), 500); }
+  };
+
   if (!user) {
     hideApp();
+    removeOverlay();
     return;
   }
-  await syncAllFromFirestore();
-  await syncShopFromFirestore();
-  await syncSettingsFromFirestore();
-  await syncProfileFromFirestore();
+
+  try {
+    await syncAllFromFirestore();
+    await syncShopFromFirestore();
+    await syncSettingsFromFirestore();
+    await syncProfileFromFirestore();
+  } catch (err) {
+    console.warn('Sync failed, loading from local cache:', err);
+  }
+
   loadSettings();
   applyActiveItems();
   await renderDay(dateToKey(state.currentDate));
@@ -2101,8 +2113,7 @@ async function init(user) {
   updateStatsUI();
   await checkAndUnlockMissions();
   showApp();
-  const overlay=document.getElementById('loading-overlay');
-  if (overlay) { overlay.classList.add('hidden'); setTimeout(()=>overlay.remove(), 500); }
+  removeOverlay();
 }
 
 let _initialized = false;
